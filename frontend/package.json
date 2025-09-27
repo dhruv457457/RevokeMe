@@ -10,6 +10,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@aa-sdk/core": "^4.65.0",
+    "@account-kit/infra": "^4.65.0",
+    "@account-kit/smart-contracts": "^4.65.0",
     "@metamask/delegation-toolkit": "^0.13.0",
     "@tailwindcss/vite": "^4.1.13",
     "@tanstack/react-query": "^5.90.2",
