@@ -1,12 +1,22 @@
+// src/components/SmartAccountSetup.tsx
+
 import React from "react";
-import { useAccount, useSwitchChain } from "wagmi";
+import { useAccount, useWalletClient, useSwitchChain } from "wagmi";
 import { useSmartAccount } from "../hooks/useSmartAccount";
 import { monadTestnet } from "../config";
 
 export const SmartAccountSetup: React.FC = () => {
-  const { smartAccount, setupSmartAccount, isSettingUp, isReady } = useSmartAccount();
-  const { isConnected, chainId } = useAccount();
+  const { smartAccount, setupSmartAccount, isSettingUp } = useSmartAccount();
+  
+  const { isConnected, chainId, address } = useAccount();
+  const { data: walletClient } = useWalletClient();
   const { switchChain } = useSwitchChain();
+  
+  const handleSetup = () => {
+    if (walletClient && address) {
+      setupSmartAccount(walletClient, address);
+    }
+  };
 
   if (!isConnected) {
     return <p className="text-center text-gray-500 mt-8">Please connect your wallet to begin.</p>;
@@ -14,7 +24,7 @@ export const SmartAccountSetup: React.FC = () => {
   
   if (isConnected && chainId !== monadTestnet.id) {
     return (
-      <div className="mt-8">
+      <div className="mt-8 text-center">
         <button
           onClick={() => switchChain({ chainId: monadTestnet.id })}
           className="px-6 py-3 rounded text-white font-bold w-full max-w-sm transition bg-yellow-500 hover:bg-yellow-600"
@@ -26,7 +36,6 @@ export const SmartAccountSetup: React.FC = () => {
   }
 
   const getButtonText = () => {
-    if (!isReady && isConnected) return "Preparing Wallet...";
     if (isSettingUp) return "Setting Up...";
     if (smartAccount) return "Smart Account Ready!";
     return "Setup Smart Account";
@@ -35,12 +44,12 @@ export const SmartAccountSetup: React.FC = () => {
   return (
     <div className="mt-8 flex flex-col items-center gap-4">
       <button
-        onClick={setupSmartAccount}
-        disabled={!isReady || !!smartAccount || isSettingUp}
+        onClick={handleSetup}
+        disabled={!!smartAccount || isSettingUp || !walletClient || !address}
         className={`px-6 py-3 rounded text-white font-bold w-full max-w-sm transition ${
           smartAccount
             ? "bg-green-600 cursor-default"
-            : isSettingUp || (isConnected && !isReady)
+            : isSettingUp
             ? "bg-gray-500 cursor-wait animate-pulse"
             : "bg-purple-600 hover:bg-purple-700"
         }`}

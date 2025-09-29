@@ -1,34 +1,10 @@
 import React, { useState } from 'react';
 import { useSmartAccount } from '../hooks/useSmartAccount';
-import { encodeFunctionData, isAddress, getAddress } from 'viem';
+import { encodeFunctionData, isAddress, getAddress, parseEther } from 'viem';
+import { createPimlicoClient } from 'permissionless/clients/pimlico'; // To get gas prices
+import { http } from "viem";
 
-const entryPointAbi = [
-  {
-    inputs: [
-      { name: 'sender', type: 'address' },
-      { name: 'key', type: 'uint192' },
-    ],
-    name: 'getNonce',
-    outputs: [{ name: 'nonce', type: 'uint256' }],
-    stateMutability: 'view',
-    type: 'function',
-  },
-] as const;
-
-const smartAccountAbi = [
-  {
-    inputs: [
-      { name: 'target', type: 'address' },
-      { name: 'value', type: 'uint256' },
-      { name: 'data', type: 'bytes' },
-    ],
-    name: 'execute',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function',
-  },
-] as const;
-
+// ABI for the ERC20 approve function
 const erc20Abi = [
   {
     inputs: [
@@ -42,158 +18,75 @@ const erc20Abi = [
   },
 ] as const;
 
+// You can get an API key from https://dashboard.pimlico.io/
+const PIMLICO_API_KEY = "pim_cuRXPkkzbAreAN4tvMnpAY";
+const pimlicoClient = createPimlicoClient({
+  transport: http(`https://api.pimlico.io/v2/monad-testnet/rpc?apikey=${PIMLICO_API_KEY}`),
+});
 const RevokeERC20Page: React.FC = () => {
-  const { smartAccount, bundlerClient, publicClient } = useSmartAccount();
+  const { smartAccount, bundlerClient } = useSmartAccount();
 
   const [tokenAddress, setTokenAddress] = useState('');
   const [spenderAddress, setSpenderAddress] = useState('');
   const [status, setStatus] = useState<{ type: 'idle' | 'loading' | 'success' | 'error', message: string }>({ type: 'idle', message: '' });
 
   const handleRevoke = async () => {
-    if (!smartAccount || !bundlerClient || !publicClient) {
+    if (!smartAccount || !bundlerClient) {
       setStatus({ type: 'error', message: 'Clients not ready. Please ensure your wallet is connected.' });
       return;
     }
 
+    // 1. Validate the addresses
     let validatedTokenAddress: `0x${string}`;
     let validatedSpenderAddress: `0x${string}`;
     try {
-      if (!isAddress(tokenAddress)) {
-        throw new Error('Invalid token address: Must be a valid 40-character hex address');
+      if (!isAddress(tokenAddress) || !isAddress(spenderAddress)) {
+        throw new Error('Please enter valid Ethereum addresses for both fields.');
       }
-      if (!isAddress(spenderAddress)) {
-        throw new Error('Invalid spender address: Must be a valid 40-character hex address');
-      }
-      validatedTokenAddress = getAddress(tokenAddress) as `0x${string}`;
-      validatedSpenderAddress = getAddress(spenderAddress) as `0x${string}`;
-      console.log('Validated Token Address:', validatedTokenAddress);
-      console.log('Validated Spender Address:', validatedSpenderAddress);
+      validatedTokenAddress = getAddress(tokenAddress);
+      validatedSpenderAddress = getAddress(spenderAddress);
     } catch (error: any) {
-      setStatus({ type: 'error', message: error.message || 'Invalid address format' });
+      setStatus({ type: 'error', message: error.message });
       return;
     }
 
     setStatus({ type: 'loading', message: 'Preparing transaction...' });
 
     try {
-      console.log('SmartAccount:', smartAccount);
-      const entryPointAddress = smartAccount.entryPoint.address;
-      console.log('EntryPoint Address:', entryPointAddress);
-
-      // Fetch nonce with error handling
-      let nonce: bigint;
-      try {
-        nonce = await publicClient.readContract({
-          address: entryPointAddress as `0x${string}`,
-          abi: entryPointAbi,
-          functionName: 'getNonce',
-          args: [smartAccount.address as `0x${string}`, BigInt(0)],
-        });
-      } catch (error: any) {
-        console.error('Failed to fetch nonce:', error);
-        setStatus({ type: 'error', message: 'Failed to fetch nonce from EntryPoint. Check RPC connection.' });
-        return;
-      }
-
-      // Handle initCode with robust fallback
-      let initCode: `0x${string}` = '0x'; // Assume deployed if check fails
-      try {
-        const isDeployed = await smartAccount.isDeployed();
-        if (!isDeployed) {
-          try {
-            const factoryArgs = await smartAccount.getFactoryArgs();
-            if (factoryArgs && factoryArgs.factory && factoryArgs.initData) {
-              initCode = `0x${factoryArgs.factory.slice(2)}${factoryArgs.initData.slice(2)}` as `0x${string}`;
-            } else {
-              console.warn('Factory args incomplete, using default initCode');
-            }
-          } catch (factoryError: any) {
-            console.warn('Failed to get factory args, assuming account is deployed. Error:', factoryError);
-          }
-        }
-      } catch (deployError: any) {
-        console.warn('Deployment check failed, assuming account is deployed. Error:', deployError);
-      }
-      console.log('InitCode:', initCode);
-
-      const callData = encodeFunctionData({
+      // 2. Encode the function call you want to make (approve spender for 0 tokens)
+      const approveCallData = encodeFunctionData({
         abi: erc20Abi,
         functionName: 'approve',
-        args: [validatedSpenderAddress, BigInt(0)],
+        args: [validatedSpenderAddress, 0n], // 0n is BigInt(0)
       });
-
-      const executeCallData = encodeFunctionData({
-        abi: smartAccountAbi,
-        functionName: 'execute',
-        args: [validatedTokenAddress, BigInt(0), callData],
-      });
-
-      const userOp = {
-        sender: smartAccount.address as `0x${string}`,
-        nonce,
-        initCode,
-        callData: executeCallData,
-        paymasterAndData: '0x' as `0x${string}`,
-        callGasLimit: BigInt(0),
-        verificationGasLimit: BigInt(0),
-        preVerificationGas: BigInt(0),
-        maxFeePerGas: BigInt(0),
-        maxPriorityFeePerGas: BigInt(0),
-        signature: '0x' as `0x${string}`,
-      };
-
-      console.log('UserOperation before estimation:', userOp); // Debug log
-
-      // Manually construct estimation params without factory or factoryData
-      const estimationParams = {
-        userOperation: {
-          sender: userOp.sender,
-          nonce: userOp.nonce,
-          initCode: userOp.initCode,
-          callData: userOp.callData, // Explicitly set callData
-          paymasterAndData: userOp.paymasterAndData,
-          callGasLimit: userOp.callGasLimit,
-          verificationGasLimit: userOp.verificationGasLimit,
-          preVerificationGas: userOp.preVerificationGas,
-          maxFeePerGas: userOp.maxFeePerGas,
-          maxPriorityFeePerGas: userOp.maxPriorityFeePerGas,
-          signature: userOp.signature,
-        },
-        entryPoint: entryPointAddress as `0x${string}`,
-        account: smartAccount,
-      };
-
-      console.log('Estimation params:', estimationParams); // Debug log
-
-      if (!bundlerClient) throw new Error('Bundler client not available');
-      const gasLimits = await bundlerClient.estimateUserOperationGas(estimationParams);
-      const gasPrice = await publicClient.estimateFeesPerGas();
-
-      userOp.callGasLimit = gasLimits.callGasLimit;
-      userOp.verificationGasLimit = gasLimits.verificationGasLimit;
-      userOp.preVerificationGas = gasLimits.preVerificationGas;
-      userOp.maxFeePerGas = gasPrice.maxFeePerGas!;
-      userOp.maxPriorityFeePerGas = gasPrice.maxPriorityFeePerGas!;
       
-      console.log('Signing UserOperation:', userOp);
+      // 3. (Optional but Recommended) Get up-to-date gas prices
+      const fee = await pimlicoClient.getUserOperationGasPrice();
 
-      const signature = await smartAccount.signUserOperation(userOp);
-      userOp.signature = signature;
-
+      // 4. Send the User Operation using the simplified API
+      // This single function handles nonce, gas estimation, initCode, signing, and sending.
       const userOpHash = await bundlerClient.sendUserOperation({
-        userOperation: userOp,
-        entryPoint: entryPointAddress as `0x${string}`,
+        account: smartAccount,
+        calls: [
+          {
+            to: validatedTokenAddress,
+            data: approveCallData,
+            value: 0n, // No ETH is being sent, only calling a function
+          }
+        ],
+        // Pass the fetched gas prices
+        maxFeePerGas: fee.fast.maxFeePerGas,
+        maxPriorityFeePerGas: fee.fast.maxPriorityFeePerGas,
       });
 
       setStatus({ type: 'loading', message: `Transaction sent! Waiting for confirmation... Hash: ${userOpHash}` });
-      console.log('UserOperation sent. Hash:', userOpHash);
 
+      // 5. Wait for the receipt
       const { receipt } = await bundlerClient.waitForUserOperationReceipt({
         hash: userOpHash,
       });
 
       setStatus({ type: 'success', message: `Revocation successful! Transaction Hash: ${receipt.transactionHash}` });
-      console.log('Transaction confirmed:', receipt.transactionHash);
     } catch (error: any) {
       console.error('Failed to send UserOperation:', error);
       const message = error.shortMessage || error.message || 'An unknown error occurred.';
@@ -209,6 +102,7 @@ const RevokeERC20Page: React.FC = () => {
     );
   }
 
+  // --- JSX for the component (unchanged) ---
   return (
     <div className="mt-8 p-6 border rounded-lg shadow-md bg-white w-full max-w-2xl mx-auto text-left">
       <h3 className="text-xl font-bold mb-4 text-gray-800">Revoke ERC20 Approval</h3>

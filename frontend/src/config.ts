@@ -3,11 +3,10 @@
 import { http, defineChain } from "viem";
 import { createConfig } from "wagmi";
 import { injected } from "wagmi/connectors";
-import { QueryClient } from "@tanstack/react-query";
 
 // Define the Monad Testnet Chain
 export const monadTestnet = defineChain({
-  id: 10143,
+  id: 10143, // Note: Your previous code had a different ID, ensure this is the correct one.
   name: 'Monad Testnet',
   nativeCurrency: {
     decimals: 18,
@@ -26,13 +25,11 @@ export const monadTestnet = defineChain({
 // Define the Alchemy Bundler RPC URL
 export const BUNDLER_RPC_URL = "https://monad-testnet.g.alchemy.com/v2/prb3bBkj1v9clt6hCTvVqcOBOCCHgLc6";
 
-// Create a TanStack Query Client
-export const queryClient = new QueryClient();
-
 // Create the Wagmi Configuration
 export const wagmiConfig = createConfig({
   autoConnect: true,
-  connectors: [injected()],
+  // ✅ This change makes the MetaMask connection more specific and reliable
+  connectors: [injected({ target: 'metaMask' })],
   chains: [monadTestnet],
   transports: {
     [monadTestnet.id]: http(),
