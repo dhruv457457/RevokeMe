@@ -1,0 +1,13 @@
+name: AutoRevokeApprovalIndexer
+networks:
+  - id: 10143 # Monad Testnet Chain ID
+    rpc: https://testnet-rpc.monad.xyz
+    start_block: 40000000
+    contracts:
+      # We are now defining one specific contract to watch
+      - name: MyTestToken
+        # ⚠️ ACTION REQUIRED: Paste the address of your deployed MyTestToken here
+        address: "0xaa6c23aBE133bF8088F32a490659e33b565A1B52"
+        handler: src/EventHandlers.ts
+        events:
+          - event: "Approval(address indexed owner, address indexed spender, uint256 value)"
