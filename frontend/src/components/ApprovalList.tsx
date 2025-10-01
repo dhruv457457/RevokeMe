@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { isAddress, formatUnits } from "viem";
 
 // Use the correct URL from your indexer's terminal output
-const INDEXER_URL = "http://localhost:8080/v1/graphql";
+const INDEXER_URL = import.meta.env.VITE_INDEXER_URL as string;
 
 // Type Definitions
 interface Approval {

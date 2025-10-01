@@ -17,7 +17,7 @@ const erc20Abi = [
   },
 ] as const;
 
-const INDEXER_URL = "http://localhost:8080/v1/graphql";
+const INDEXER_URL = import.meta.env.VITE_INDEXER_URL as string;
 const PIMLICO_API_KEY = import.meta.env.VITE_PIMLICO_API_KEY;
 
 interface Approval {
@@ -88,7 +88,7 @@ const RevokeERC20Page: React.FC = () => {
     .then(r => r.json())
     .then(data => {
       const raw = data?.data?.Approval ?? [];
-      setApprovals(raw.filter(a => {
+      setApprovals(raw.filter((a: Approval) => {
         try { return BigInt(a.amount) > 0n; } catch { return false; }
       }));
     })

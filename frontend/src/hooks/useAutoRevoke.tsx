@@ -7,26 +7,27 @@ import { createPimlicoClient } from 'permissionless/clients/pimlico';
 // --- Configuration & Types ---
 const INDEXER_URL = "http://localhost:8080/v1/graphql";
 const PIMLICO_API_KEY = import.meta.env.VITE_PIMLICO_API_KEY;
-const erc20Abi = [{ inputs: [{ name: 'spender', type: 'address' }, { name: 'amount', type: 'uint256' }], name: 'approve', outputs: [{ name: '', type: 'bool' }], stateMutability: 'nonpayable', type: 'function' }] as const;
+const erc20Abi = [
+  { inputs: [{ name: 'spender', type: 'address' }, { name: 'amount', type: 'uint256' }], name: 'approve', outputs: [{ name: '', type: 'bool' }], stateMutability: 'nonpayable', type: 'function' }
+] as const;
 
 const pimlicoClient = createPimlicoClient({
-  transport: http(`https://api.pimlico.io/v2/monad-testnet/rpc?apikey=${PIMLICO_API_KEY}`),
+  transport: http(`https://api.pimlico.io/v2/monad-testnet/rpc?apikey=${PIMLICO_API_KEY}`, { timeout: 30000 }),
 });
 
 interface DelegationGrant {
   owner: Address;
   expiry: bigint;
-  signature?: `0x${string}`;
 }
 interface Approval {
-    id: string;
-    tokenAddress: `0x${string}`;
-    spender: `0x${string}`;
-    owner: `0x${string}`;
+  id: string;
+  tokenAddress: `0x${string}`;
+  spender: `0x${string}`;
+  owner: `0x${string}`;
+  amount: string;
 }
 
 const GRANT_STORAGE_KEY = 'autoRevokeDelegationGrant';
-const PROCESSED_IDS_KEY = 'autoRevokeProcessedIds';
 
 // --- The Hook ---
 export const useAutoRevoke = () => {
@@ -37,6 +38,7 @@ export const useAutoRevoke = () => {
   const [grant, setGrant] = useState<DelegationGrant | null>(null);
   const [status, setStatus] = useState<string>('Inactive');
   const isProcessing = useRef(false);
+  const savedWatcherCallback = useRef<() => void>();
 
   // Load grant from localStorage on startup
   useEffect(() => {
@@ -45,53 +47,71 @@ export const useAutoRevoke = () => {
       const parsed = JSON.parse(savedGrant, (key, value) => (key === 'expiry') ? BigInt(value) : value);
       if (parsed.owner === eoaAddress && parsed.expiry > BigInt(Math.floor(Date.now() / 1000))) {
         setGrant(parsed);
-      } else {
-        localStorage.removeItem(GRANT_STORAGE_KEY);
       }
     }
   }, [eoaAddress]);
   
-  // Create a stable, memoized function for the revocation logic.
   const triggerAutoRevoke = useCallback(async (approval: Approval): Promise<boolean> => {
-    if (!smartAccount || !bundlerClient) return false;
+    if (!smartAccount || !bundlerClient || !isAddress(approval.tokenAddress) || !isAddress(approval.spender)) {
+      console.error("--- DEBUG: Invalid smartAccount, bundlerClient, or addresses ---", { smartAccount, bundlerClient, tokenAddress: approval.tokenAddress, spender: approval.spender });
+      setStatus('Auto-revoke failed: Invalid setup or addresses.');
+      return false;
+    }
+
     try {
-      const fee = await pimlicoClient.getUserOperationGasPrice();
-      const opHash = await bundlerClient.sendUserOperation({
+      let fee;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          fee = await pimlicoClient.getUserOperationGasPrice();
+          break;
+        } catch (e) {
+          console.warn(`--- DEBUG: Gas price fetch attempt ${attempt} failed ---`, e);
+          if (attempt === 3) throw new Error('Failed to fetch gas prices after retries.');
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+        }
+      }
+
+      const op = {
         account: smartAccount,
         calls: [{
           to: getAddress(approval.tokenAddress),
-          data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [getAddress(approval.spender), BigInt(0)] }),
+          data: encodeFunctionData({
+            abi: erc20Abi,
+            functionName: 'approve',
+            args: [getAddress(approval.spender), BigInt(0)]
+          }),
           value: BigInt(0)
         }],
         maxFeePerGas: fee.fast.maxFeePerGas,
         maxPriorityFeePerGas: fee.fast.maxPriorityFeePerGas,
-      });
-      setStatus(`Auto-revoke sent. Waiting for confirmation...`);
-      await bundlerClient.waitForUserOperationReceipt({ hash: opHash });
-      setStatus('Auto-revoke successful! Resuming watch...');
+      };
+
+      const opHash = await bundlerClient.sendUserOperation(op);
+      setStatus(`Auto-revoke sent for ${approval.id}. Waiting...`);
+      const { receipt } = await bundlerClient.waitForUserOperationReceipt({ hash: opHash });
+      setStatus(`Auto-revoke successful! TX: ${receipt.transactionHash}`);
       return true;
-    } catch (e) {
+    } catch (e: any) {
       console.error("--- DEBUG: Auto-revoke transaction failed ---", e);
-      setStatus('Auto-revoke failed. Check console.');
+      setStatus(`Auto-revoke failed: ${e.message || 'Check console.'}`);
       return false;
     }
   }, [smartAccount, bundlerClient]);
 
-  // Create a stable, memoized function for the watcher's core logic.
   const checkForUnseenApprovals = useCallback(async () => {
     console.log(`%c[Watcher] Tick! Starting check... (isProcessing: ${isProcessing.current})`, 'color: gray');
-    if (isProcessing.current || !smartAccount?.address) {
-        if(isProcessing.current) console.log("%c[Watcher] Locked. Skipping this check.", 'color: orange');
-        return;
+    if (isProcessing.current || !smartAccount?.address || !bundlerClient) {
+      if (isProcessing.current) console.log("%c[Watcher] Locked. Skipping this check.", 'color: orange');
+      if (!smartAccount?.address) console.log("%c[Watcher] No smart account address.", 'color: orange');
+      if (!bundlerClient) console.log("%c[Watcher] No bundler client.", 'color: orange');
+      setStatus('Inactive: Smart account not ready.');
+      return;
     }
 
-    const processedIds = new Set(JSON.parse(localStorage.getItem(PROCESSED_IDS_KEY) || '[]'));
-    setStatus(`Watching for new approvals... (processed ${processedIds.size})`);
-    console.log("[Watcher] Current processed IDs:", Array.from(processedIds));
-
+    setStatus(`Watching for new approvals...`);
     const graphqlQuery = {
-      query: `query GetAllApprovals($owner: String!) { Approval(where: {owner: {_eq: $owner}, amount: {_gt: "0"}}) { id tokenAddress spender owner } }`,
-      variables: { owner: smartAccount.address.toLowerCase() },
+      query: `query GetAllApprovals($addr: String!) { Approval(where: {_or: [{owner: {_eq: $addr}}, {spender: {_eq: $addr}}]}) { id tokenAddress spender owner amount } }`,
+      variables: { addr: smartAccount.address.toLowerCase() },
     };
 
     try {
@@ -99,22 +119,18 @@ export const useAutoRevoke = () => {
       const data = await response.json();
       console.log("[Watcher] Indexer response:", data);
       
-      const allActiveApprovals: Approval[] = data?.data?.Approval ?? [];
-      const unseenApproval = allActiveApprovals.find(app => !processedIds.has(app.id));
-      console.log("[Watcher] Found unseen approval:", unseenApproval || "None");
+      const allActiveApprovals: Approval[] = (data?.data?.Approval ?? []).filter(app => {
+        try { return BigInt(app.amount) > 0; } catch { return false; }
+      });
+      const approvalToRevoke = allActiveApprovals.find(app => app.owner.toLowerCase() === smartAccount.address.toLowerCase());
+      console.log("[Watcher] Found approval to revoke:", approvalToRevoke || "None");
 
-      if (unseenApproval) {
+      if (approvalToRevoke) {
         isProcessing.current = true;
-        console.log(`%c[Watcher] LOCKING. Processing: ${unseenApproval.id}`, 'color: blue; font-weight: bold;');
-        setStatus(`Found new approval for ${unseenApproval.tokenAddress}. Triggering...`);
+        console.log(`%c[Watcher] LOCKING. Processing: ${approvalToRevoke.id}`, 'color: blue; font-weight: bold;');
+        setStatus(`Found new approval for ${approvalToRevoke.tokenAddress}. Triggering...`);
         try {
-          const success = await triggerAutoRevoke(unseenApproval);
-          if (success) {
-            const currentProcessedIds = new Set(JSON.parse(localStorage.getItem(PROCESSED_IDS_KEY) || '[]'));
-            const newProcessedIds = new Set(currentProcessedIds).add(unseenApproval.id);
-            localStorage.setItem(PROCESSED_IDS_KEY, JSON.stringify(Array.from(newProcessedIds)));
-            console.log("[Watcher] Added to processed list:", unseenApproval.id);
-          }
+          await triggerAutoRevoke(approvalToRevoke);
         } finally {
           console.log(`%c[Watcher] UNLOCKING. Finished processing.`, 'color: blue; font-weight: bold;');
           isProcessing.current = false;
@@ -122,50 +138,77 @@ export const useAutoRevoke = () => {
       }
     } catch (e) { 
       console.error("--- DEBUG: Watcher failed to fetch ---", e);
+      setStatus('Watcher failed to fetch approvals.');
       isProcessing.current = false;
     }
-  }, [smartAccount, triggerAutoRevoke]);
+  }, [smartAccount, bundlerClient, triggerAutoRevoke]);
 
-  // This useEffect now ONLY manages the timer.
   useEffect(() => {
-    if (!grant) {
-      setStatus('Inactive');
+    savedWatcherCallback.current = checkForUnseenApprovals;
+  }, [checkForUnseenApprovals]);
+
+  useEffect(() => {
+    if (!grant || !smartAccount?.address || !bundlerClient) {
+      setStatus('Inactive: Awaiting authorization or smart account setup.');
       return;
     }
     
-    checkForUnseenApprovals();
+    function tick() {
+      if (savedWatcherCallback.current) {
+        savedWatcherCallback.current();
+      }
+    }
 
-    const intervalId = setInterval(() => {
-      checkForUnseenApprovals();
-    }, 15000);
-
+    tick();
+    const intervalId = setInterval(tick, 15000);
     return () => clearInterval(intervalId);
-  }, [grant, checkForUnseenApprovals]);
+  }, [grant, smartAccount, bundlerClient]);
 
-  // --- Functions for the UI ---
   const authorizeAutoRevoke = async () => {
-    if (!eoaAddress || !smartAccount?.address || !chain) return;
-    const delegation = {
-      owner: eoaAddress,
-      expiry: BigInt(Math.floor(Date.now() / 1000) + (24 * 60 * 60)), // 24 hours
-    };
-    const signature = await signTypedDataAsync({
-      domain: { name: 'AutoRevoke dApp', version: '1', chainId: chain.id, verifyingContract: smartAccount.address },
-      types: { Delegation: [{ name: 'owner', type: 'address' }, { name: 'expiry', type: 'uint256' }] },
-      primaryType: 'Delegation',
-      message: delegation,
-    });
-    const signedGrant = { ...delegation, signature };
-    localStorage.setItem(GRANT_STORAGE_KEY, JSON.stringify(signedGrant, (key, value) => typeof value === 'bigint' ? value.toString() : value));
-    setGrant(signedGrant);
+    if (!eoaAddress || !smartAccount) {
+      setStatus('Authorization failed: No EOA or smart account.');
+      return;
+    }
+
+    try {
+      const expiry = BigInt(Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7); // 7 days
+      const domain = {
+        name: 'AutoRevokeDelegation',
+        version: '1',
+        chainId: chain?.id,
+        verifyingContract: smartAccount.address,
+      };
+      const types = {
+        Delegation: [
+          { name: 'owner', type: 'address' },
+          { name: 'expiry', type: 'uint256' },
+        ],
+      };
+      const value = {
+        owner: eoaAddress,
+        expiry,
+      };
+
+      const signature = await signTypedDataAsync({ domain, types, primaryType: 'Delegation', message: value });
+      // Note: In a real setup, you'd send this signature to the smart account or backend to enable delegation.
+      // For this example, we're just simulating by storing the grant locally.
+      console.log('Delegation signed:', signature);
+
+      const newGrant: DelegationGrant = { owner: eoaAddress, expiry };
+      setGrant(newGrant);
+      localStorage.setItem(GRANT_STORAGE_KEY, JSON.stringify(newGrant, (key, value) => typeof value === 'bigint' ? value.toString() : value));
+      setStatus('Authorized successfully!');
+    } catch (e: any) {
+      console.error('Authorization failed:', e);
+      setStatus(`Authorization failed: ${e.message || 'Check console.'}`);
+    }
   };
 
   const revokeAuthorization = () => {
-    localStorage.removeItem(GRANT_STORAGE_KEY);
-    localStorage.removeItem(PROCESSED_IDS_KEY);
     setGrant(null);
+    localStorage.removeItem(GRANT_STORAGE_KEY);
+    setStatus('Inactive: Authorization revoked.');
   };
 
   return { grant, status, authorizeAutoRevoke, revokeAuthorization };
 };
-
