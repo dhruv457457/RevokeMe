@@ -27,11 +27,10 @@ export const BUNDLER_RPC_URL = "https://monad-testnet.g.alchemy.com/v2/prb3bBkj1
 
 // Create the Wagmi Configuration
 export const wagmiConfig = createConfig({
-  autoConnect: true,
-  // ✅ This change makes the MetaMask connection more specific and reliable
   connectors: [injected({ target: 'metaMask' })],
   chains: [monadTestnet],
   transports: {
     [monadTestnet.id]: http(),
   },
+  ssr: true
 });
