@@ -82,6 +82,24 @@ const NavBar: React.FC = () => {
               Batch Revoke
             </NavLink>
           </li>
+          <li>
+            <NavLink 
+              to="/auto-revoke" 
+              className="hover:text-white transition-colors"
+              style={({ isActive }) => isActive ? activeLinkStyle : undefined}
+            >
+              Auto Revoke
+            </NavLink>
+          </li>
+          <li>
+            <NavLink 
+              to="/approve-erc20" 
+              className="hover:text-white transition-colors"
+              style={({ isActive }) => isActive ? activeLinkStyle : undefined}
+            >
+              Approve ERC20
+            </NavLink>
+          </li>
         </ul>
       </nav>
 

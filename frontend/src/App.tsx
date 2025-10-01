@@ -10,6 +10,8 @@ import Home from "./pages/Home";
 import RevokeERC20 from "./pages/RevokeERC20";
 import BatchRevoke from "./pages/BatchRevoke";
 import SmartAccountSetup from "./components/SmartAccountSetup";
+import AutoRevokePage from "./pages/AutoRevokePage";
+import ApproveERC20 from "./pages/ApproveERC20";
 
 const queryClient = new QueryClient();
 
@@ -26,6 +28,8 @@ function App() {
                   <Route path="/" element={<Home />} />
                   <Route path="/revoke-erc20" element={<RevokeERC20 />} />
                   <Route path="/batch-revoke" element={<BatchRevoke />} />
+                  <Route path="/auto-revoke" element={<AutoRevokePage />} />
+                  <Route path="/approve-erc20" element={<ApproveERC20 />} />      
                 </Routes>
                 <SmartAccountSetup />
               </main>
