@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAccount, useWriteContract } from 'wagmi';
 import { useSmartAccount } from '../hooks/useSmartAccount';
-import { encodeFunctionData, isAddress, getAddress, formatUnits } from 'viem';
+import { encodeFunctionData, isAddress, getAddress, formatUnits, http } from 'viem';
+import { createPimlicoClient } from 'permissionless/clients/pimlico';
 
 // ERC20 ABI
 const erc20Abi = [
@@ -17,8 +18,12 @@ const erc20Abi = [
   },
 ] as const;
 
-const INDEXER_URL = import.meta.env.VITE_INDEXER_URL as string;
+const INDEXER_URL = "http://localhost:8080/v1/graphql";
 const PIMLICO_API_KEY = import.meta.env.VITE_PIMLICO_API_KEY;
+
+const pimlicoClient = createPimlicoClient({
+  transport: http(`https://api.pimlico.io/v2/monad-testnet/rpc?apikey=${PIMLICO_API_KEY}`),
+});
 
 interface Approval {
   id: string;
@@ -84,7 +89,7 @@ const RevokeERC20Page: React.FC = () => {
       variables: { addr: selectedAddress.toLowerCase() },
     };
 
-    fetch(INDEXER_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(query) })
+    fetch(INDEXER_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-hasura-admin-secret': 'testing' }, body: JSON.stringify(query) })
     .then(r => r.json())
     .then(data => {
       const raw = data?.data?.Approval ?? [];
@@ -92,7 +97,7 @@ const RevokeERC20Page: React.FC = () => {
         try { return BigInt(a.amount) > 0n; } catch { return false; }
       }));
     })
-    .catch(e => setStatus({ type: 'error', message: 'Could not fetch approvals.' }))
+    .catch(_e => setStatus({ type: 'error', message: 'Could not fetch approvals.' }))
     .finally(() => setIsLoading(false));
   }, [selectedAddress]);
 
@@ -110,7 +115,21 @@ const RevokeERC20Page: React.FC = () => {
           setStatus({ type: 'error', message: 'Smart Account setup required.' });
           return;
         }
-        const fee = await bundlerClient.getUserOperationGasPrice();
+        let fee;
+        let lastError;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            fee = await pimlicoClient.getUserOperationGasPrice();
+            break;
+          } catch (e) {
+            lastError = e;
+            console.warn(`Gas price fetch attempt ${attempt} failed`, e);
+            await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+          }
+        }
+        if (!fee) {
+          throw lastError || new Error('Failed to fetch gas prices after retries.');
+        }
         const opHash = await bundlerClient.sendUserOperation({
           account: smartAccount,
           calls: [{

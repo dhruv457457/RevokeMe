@@ -14,7 +14,7 @@ export const SmartAccountSetup: React.FC = () => {
   
   const handleSetup = () => {
     if (walletClient && address) {
-      setupSmartAccount(walletClient, address);
+      setupSmartAccount();
     }
   };
 

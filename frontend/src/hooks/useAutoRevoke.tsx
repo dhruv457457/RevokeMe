@@ -3,10 +3,15 @@ import { useAccount, useSignTypedData } from 'wagmi';
 import { useSmartAccount } from './useSmartAccount';
 import { encodeFunctionData, getAddress, isAddress, type Address, http } from 'viem';
 import { createPimlicoClient } from 'permissionless/clients/pimlico';
+import { getUserOperationGasPrice } from 'permissionless/actions/pimlico'; // For type inference
 
 // --- Configuration & Types ---
 const INDEXER_URL = "http://localhost:8080/v1/graphql";
-const PIMLICO_API_KEY = import.meta.env.VITE_PIMLICO_API_KEY;
+const PIMLICO_API_KEY = import.meta.env.VITE_PIMLICO_API_KEY as string;
+
+// Infer the gas price type directly from the function's return type
+type PimlicoUserOperationGasPrice = Awaited<ReturnType<typeof getUserOperationGasPrice>>;
+
 const erc20Abi = [
   { inputs: [{ name: 'spender', type: 'address' }, { name: 'amount', type: 'uint256' }], name: 'approve', outputs: [{ name: '', type: 'bool' }], stateMutability: 'nonpayable', type: 'function' }
 ] as const;
@@ -38,9 +43,10 @@ export const useAutoRevoke = () => {
   const [grant, setGrant] = useState<DelegationGrant | null>(null);
   const [status, setStatus] = useState<string>('Inactive');
   const isProcessing = useRef(false);
-  const savedWatcherCallback = useRef<() => void>();
+  // FIX 1: Initialize useRef with null and update its type to allow null
+  const savedWatcherCallback = useRef<(() => void) | null>(null);
 
-  // Load grant from localStorage on startup
+  // Load grant from localStorage on startup (Your exact logic)
   useEffect(() => {
     const savedGrant = localStorage.getItem(GRANT_STORAGE_KEY);
     if (savedGrant) {
@@ -59,7 +65,8 @@ export const useAutoRevoke = () => {
     }
 
     try {
-      let fee;
+      // FIX 2: Define fee with the correct inferred type
+      let fee: PimlicoUserOperationGasPrice | undefined;
       for (let attempt = 1; attempt <= 3; attempt++) {
         try {
           fee = await pimlicoClient.getUserOperationGasPrice();
@@ -69,6 +76,11 @@ export const useAutoRevoke = () => {
           if (attempt === 3) throw new Error('Failed to fetch gas prices after retries.');
           await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
         }
+      }
+
+      // FIX 3: Add a guard to ensure 'fee' is defined before use
+      if (!fee) {
+          throw new Error('Could not retrieve gas fee after multiple attempts.');
       }
 
       const op = {
@@ -119,7 +131,8 @@ export const useAutoRevoke = () => {
       const data = await response.json();
       console.log("[Watcher] Indexer response:", data);
       
-      const allActiveApprovals: Approval[] = (data?.data?.Approval ?? []).filter(app => {
+      // FIX 4: Explicitly type the 'app' parameter in the filter callback
+      const allActiveApprovals: Approval[] = (data?.data?.Approval ?? []).filter((app: Approval) => {
         try { return BigInt(app.amount) > 0; } catch { return false; }
       });
       const approvalToRevoke = allActiveApprovals.find(app => app.owner.toLowerCase() === smartAccount.address.toLowerCase());
@@ -190,13 +203,12 @@ export const useAutoRevoke = () => {
       };
 
       const signature = await signTypedDataAsync({ domain, types, primaryType: 'Delegation', message: value });
-      // Note: In a real setup, you'd send this signature to the smart account or backend to enable delegation.
-      // For this example, we're just simulating by storing the grant locally.
       console.log('Delegation signed:', signature);
 
       const newGrant: DelegationGrant = { owner: eoaAddress, expiry };
       setGrant(newGrant);
-      localStorage.setItem(GRANT_STORAGE_KEY, JSON.stringify(newGrant, (key, value) => typeof value === 'bigint' ? value.toString() : value));
+      // FIX 5: Prefix unused 'key' to satisfy TypeScript linter
+      localStorage.setItem(GRANT_STORAGE_KEY, JSON.stringify(newGrant, (_key, value) => typeof value === 'bigint' ? value.toString() : value));
       setStatus('Authorized successfully!');
     } catch (e: any) {
       console.error('Authorization failed:', e);
