@@ -1,4 +1,3 @@
-import React from "react";
 import { WagmiProvider } from "wagmi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
@@ -8,7 +7,6 @@ import { SmartAccountProvider } from "./hooks/useSmartAccount";
 import NavBar from "./components/NavBar";
 import Home from "./pages/Home";
 import RevokeERC20 from "./pages/RevokeERC20";
-import BatchRevoke from "./pages/BatchRevoke";
 import SmartAccountSetup from "./components/SmartAccountSetup";
 import AutoRevokePage from "./pages/AutoRevokePage";
 import ApproveERC20 from "./pages/ApproveERC20";
@@ -27,7 +25,6 @@ function App() {
                 <Routes>
                   <Route path="/" element={<Home />} />
                   <Route path="/revoke-erc20" element={<RevokeERC20 />} />
-                  <Route path="/batch-revoke" element={<BatchRevoke />} />
                   <Route path="/auto-revoke" element={<AutoRevokePage />} />
                   <Route path="/approve-erc20" element={<ApproveERC20 />} />      
                 </Routes>

@@ -4,7 +4,6 @@ import { useSmartAccount } from '../hooks/useSmartAccount';
 
 const AutoRevokePage: React.FC = () => {
   const { smartAccount } = useSmartAccount();
-  // ✅ Corrected: Removed `isWatcherActive` as it's no longer returned by the hook
   const { grant, status, authorizeAutoRevoke, revokeAuthorization } = useAutoRevoke();
 
   if (!smartAccount) {
