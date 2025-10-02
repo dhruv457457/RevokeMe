@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAccount, useWriteContract } from 'wagmi';
 import { useSmartAccount } from '../hooks/useSmartAccount';
-import { encodeFunctionData, isAddress, getAddress, formatUnits, http } from 'viem';
-import { createPimlicoClient } from 'permissionless/clients/pimlico';
+import { encodeFunctionData, isAddress, getAddress, formatUnits } from 'viem';
 
 // ERC20 ABI
 const erc20Abi = [
@@ -20,10 +19,6 @@ const erc20Abi = [
 
 const INDEXER_URL = "http://localhost:8080/v1/graphql";
 const PIMLICO_API_KEY = import.meta.env.VITE_PIMLICO_API_KEY;
-
-const pimlicoClient = createPimlicoClient({
-  transport: http(`https://api.pimlico.io/v2/monad-testnet/rpc?apikey=${PIMLICO_API_KEY}`),
-});
 
 interface Approval {
   id: string;
@@ -52,7 +47,7 @@ const formatDate = (timestamp?: string | null) => {
 
 const RevokeERC20Page: React.FC = () => {
   const { address: eoaAddress } = useAccount();
-  const { smartAccount, bundlerClient } = useSmartAccount();
+  const { smartAccount, pimlicoClient, smartClient } = useSmartAccount();
   const { writeContractAsync } = useWriteContract();
   const [accountType, setAccountType] = useState<'smart' | 'eoa'>('smart');
   const selectedAddress = accountType === 'smart' ? smartAccount?.address : eoaAddress;
@@ -111,7 +106,7 @@ const RevokeERC20Page: React.FC = () => {
     }
     try {
       if (accountType === 'smart') {
-        if (!smartAccount || !bundlerClient || !PIMLICO_API_KEY) {
+        if (!smartAccount || !pimlicoClient || !smartClient || !PIMLICO_API_KEY) {
           setStatus({ type: 'error', message: 'Smart Account setup required.' });
           return;
         }
@@ -130,8 +125,7 @@ const RevokeERC20Page: React.FC = () => {
         if (!fee) {
           throw lastError || new Error('Failed to fetch gas prices after retries.');
         }
-        const opHash = await bundlerClient.sendUserOperation({
-          account: smartAccount,
+        const opHash = await smartClient.sendUserOperation({
           calls: [{
             to: getAddress(tokenAddress),
             data: encodeFunctionData({
@@ -145,7 +139,7 @@ const RevokeERC20Page: React.FC = () => {
           maxPriorityFeePerGas: fee.fast.maxPriorityFeePerGas,
         });
         setStatus({ type: 'loading', message: `Transaction sent, waiting for confirmation...` });
-        const { receipt } = await bundlerClient.waitForUserOperationReceipt({ hash: opHash });
+        const { receipt } = await pimlicoClient.waitForUserOperationReceipt({ hash: opHash });
         setStatus({ type: 'success', message: `Revoked! TX hash: ${receipt.transactionHash}` });
       } else {
         const txHash = await writeContractAsync({

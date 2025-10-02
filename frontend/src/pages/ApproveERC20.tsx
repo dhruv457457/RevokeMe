@@ -2,24 +2,28 @@ import React, { useState } from 'react';
 import { useSmartAccount } from '../hooks/useSmartAccount';
 import { useAccount, useWriteContract } from 'wagmi';
 import { encodeFunctionData, isAddress, getAddress, parseEther } from 'viem';
-import { createPimlicoClient } from 'permissionless/clients/pimlico';
-import { http } from "viem";
 
-const erc20Abi = [ { inputs: [ { name: 'spender', type: 'address' }, { name: 'amount', type: 'uint256' }, ], name: 'approve', outputs: [{ name: '', type: 'bool' }], stateMutability: 'nonpayable', type: 'function', } ] as const;
-
-const PIMLICO_API_KEY = import.meta.env.VITE_PIMLICO_API_KEY;
-const pimlicoClient = createPimlicoClient({
-  transport: http(`https://api.pimlico.io/v2/monad-testnet/rpc?apikey=${PIMLICO_API_KEY}`),
-});
+const erc20Abi = [
+  {
+    inputs: [
+      { name: 'spender', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+    ],
+    name: 'approve',
+    outputs: [{ name: '', type: 'bool' }],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+] as const;
 
 const ApproveERC20Page: React.FC = () => {
-  const { smartAccount, bundlerClient } = useSmartAccount();
+  const { smartAccount, pimlicoClient, smartClient } = useSmartAccount(); // Use from hook (update hook if needed)
   const { address: eoaAddress } = useAccount();
   const { writeContractAsync } = useWriteContract();
   
   const [tokenAddress, setTokenAddress] = useState('');
   const [spenderAddress, setSpenderAddress] = useState('');
-  const [approveAmount, setApproveAmount] = useState('100'); // Default to 100
+  const [approveAmount, setApproveAmount] = useState('100'); // Default to 100 (assuming 18 decimals)
   const [accountType, setAccountType] = useState<'smart' | 'eoa'>('smart');
   const [status, setStatus] = useState<{ type: 'idle' | 'loading' | 'success' | 'error', message: string }>({ type: 'idle', message: '' });
 
@@ -31,7 +35,7 @@ const ApproveERC20Page: React.FC = () => {
       if (!isAddress(tokenAddress) || !isAddress(spenderAddress)) throw new Error('Invalid address format.');
       validatedTokenAddress = getAddress(tokenAddress);
       validatedSpenderAddress = getAddress(spenderAddress);
-      amountAsBigInt = parseEther(approveAmount); // Converts "100" to 100000000000000000000
+      amountAsBigInt = parseEther(approveAmount); // Use parseUnits if token decimals != 18
     } catch (error: any) {
       setStatus({ type: 'error', message: error.message });
       return;
@@ -41,17 +45,30 @@ const ApproveERC20Page: React.FC = () => {
 
     try {
       if (accountType === 'smart') {
-        if (!smartAccount || !bundlerClient) throw new Error('Smart Account not ready.');
+        if (!smartAccount || !pimlicoClient || !smartClient) throw new Error('Smart Account not ready.');
         const approveCallData = encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [validatedSpenderAddress, amountAsBigInt] });
-        const fee = await pimlicoClient.getUserOperationGasPrice();
-        const userOpHash = await bundlerClient.sendUserOperation({
-          account: smartAccount,
+        let fee;
+        let lastError;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            fee = await pimlicoClient.getUserOperationGasPrice();
+            break;
+          } catch (e) {
+            lastError = e;
+            console.warn(`Gas price fetch attempt ${attempt} failed`, e);
+            await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+          }
+        }
+        if (!fee) {
+          throw lastError || new Error('Failed to fetch gas prices after retries.');
+        }
+        const userOpHash = await smartClient.sendUserOperation({
           calls: [{ to: validatedTokenAddress, data: approveCallData, value: BigInt(0) }],
           maxFeePerGas: fee.fast.maxFeePerGas,
           maxPriorityFeePerGas: fee.fast.maxPriorityFeePerGas,
         });
         setStatus({ type: 'loading', message: `Approval sent! Waiting for confirmation... Hash: ${userOpHash}` });
-        const { receipt } = await bundlerClient.waitForUserOperationReceipt({ hash: userOpHash });
+        const { receipt } = await pimlicoClient.waitForUserOperationReceipt({ hash: userOpHash });
         setStatus({ type: 'success', message: `Approval successful! Tx Hash: ${receipt.transactionHash}` });
       } else {
         const txHash = await writeContractAsync({
