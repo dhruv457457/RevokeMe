@@ -31,7 +31,7 @@ export const useAutoRevoke = () => {
   const [grant, setGrant] = useState<DelegationGrant | null>(null);
   const [status, setStatus] = useState<string>('Inactive');
   const isProcessing = useRef(false);
-  const savedWatcherCallback = useRef<() => void>();
+  const savedWatcherCallback = useRef<() => void>(undefined);
 
   // Load grant from localStorage on startup
   useEffect(() => {
@@ -113,7 +113,7 @@ export const useAutoRevoke = () => {
       const data = await response.json();
       console.log("[Watcher] Indexer response:", data);
       
-      const allActiveApprovals: Approval[] = (data?.data?.Approval ?? []).filter(app => {
+      const allActiveApprovals: Approval[] = (data?.data?.Approval ?? []).filter((app: Approval) => {
         try { return BigInt(app.amount) > 0; } catch { return false; }
       });
       const approvalToRevoke = allActiveApprovals.find(app => app.owner.toLowerCase() === smartAccount.address.toLowerCase());
@@ -190,7 +190,7 @@ export const useAutoRevoke = () => {
 
       const newGrant: DelegationGrant = { owner: eoaAddress, expiry };
       setGrant(newGrant);
-      localStorage.setItem(GRANT_STORAGE_KEY, JSON.stringify(newGrant, (key, value) => typeof value === 'bigint' ? value.toString() : value));
+      localStorage.setItem(GRANT_STORAGE_KEY, JSON.stringify(newGrant, (_, value) => typeof value === 'bigint' ? value.toString() : value));
       setStatus('Authorized successfully!');
     } catch (e: any) {
       console.error('Authorization failed:', e);
