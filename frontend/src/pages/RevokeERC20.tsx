@@ -84,7 +84,7 @@ const RevokeERC20Page: React.FC = () => {
       variables: { addr: selectedAddress.toLowerCase() },
     };
 
-    fetch(INDEXER_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-hasura-admin-secret': 'testing' }, body: JSON.stringify(query) })
+    fetch(INDEXER_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(query) })
     .then(r => r.json())
     .then(data => {
       const raw = data?.data?.Approval ?? [];

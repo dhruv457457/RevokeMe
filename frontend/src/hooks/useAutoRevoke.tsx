@@ -109,7 +109,7 @@ export const useAutoRevoke = () => {
     };
 
     try {
-      const response = await fetch(INDEXER_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-hasura-admin-secret': 'testing' }, body: JSON.stringify(graphqlQuery) });
+      const response = await fetch(INDEXER_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(graphqlQuery) });
       const data = await response.json();
       console.log("[Watcher] Indexer response:", data);
       
