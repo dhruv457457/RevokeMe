@@ -1,10 +1,18 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useConnect, useAccount, useDisconnect } from "wagmi";
 import { injected } from "@wagmi/connectors";
-import { Link, NavLink } from "react-router-dom"; // Use NavLink for active styles
+import { Link } from "react-router-dom";
+import {
+  Navbar,
+  NavBody,
+  NavItems,
+  MobileNav,
+  MobileNavHeader,
+  MobileNavMenu,
+  MobileNavToggle,
+} from "./ui/resizable-navbar";
 
-// --- Component 1: Connect Wallet Button ---
-// This component now *only* handles connecting and disconnecting.
+// --- Reusable Connect Wallet Button ---
 const ConnectWalletButton: React.FC = () => {
   const { connect } = useConnect();
   const { isConnected, address } = useAccount();
@@ -13,12 +21,12 @@ const ConnectWalletButton: React.FC = () => {
   if (isConnected) {
     return (
       <div className="flex items-center space-x-4">
-        <span className="text-sm bg-white/10 px-3 py-2 rounded-md font-mono hidden sm:block">
+        <span className="text-sm bg-white/10 text-white px-3 py-2 rounded-md font-mono hidden sm:block">
           {address?.slice(0, 6)}...{address?.slice(-4)}
         </span>
         <button
           onClick={() => disconnect()}
-          className="bg-red-600 px-4 py-2 rounded-md text-sm font-semibold hover:bg-red-700 transition-colors"
+          className="bg-red-600 text-white cursor-pointer px-4 py-2 rounded-md text-sm font-semibold hover:bg-red-700 transition-colors"
         >
           Disconnect
         </button>
@@ -29,85 +37,65 @@ const ConnectWalletButton: React.FC = () => {
   return (
     <button
       onClick={() => connect({ connector: injected() })}
-      className="bg-blue-600 px-4 py-2 rounded-md text-sm font-semibold hover:bg-blue-700 transition-colors"
+      className="bg-[#7f48de] text-white hover:bg-[#7437DC] cursor-pointer px-4 py-2 rounded-md text-sm font-semibold transition-colors"
     >
       Connect Wallet
     </button>
   );
 };
 
-// --- Component 2: Main NavBar ---
-// This component now handles the overall layout and navigation structure.
+
+// --- New Resizable NavBar Component ---
 const NavBar: React.FC = () => {
-  // Style for the active NavLink
-  const activeLinkStyle = {
-    textDecoration: 'underline',
-    color: '#a78bfa', // A light purple for the active link
-  };
+  const [isOpen, setIsOpen] = useState(false);
+
+  const navItems = [
+    { name: "Home", link: "/" },
+    { name: "Revoke ERC20", link: "/revoke-erc20" },
+    { name: "Auto Revoke", link: "/auto-revoke" },
+    { name: "Approve ERC20", link: "/approve-erc20" },
+  ];
 
   return (
-    <header className="mb-8 flex justify-between items-center bg-gray-900 text-white p-4 shadow-md w-full">
-      {/* Left Side: Title */}
-      <div className="flex-shrink-0">
-        <Link to="/" className="text-xl font-bold">AutoRevoke dApp</Link>
-      </div>
+    <Navbar className="sticky top-0 p-2">
+      {/* --- Desktop Navigation --- */}
+      <NavBody className="w-full">
+        <div className="flex items-center gap-x-2">
+            <Link to="/" className="text-xl font-bold text-white">RevokeMe</Link>
+        </div>
+        <NavItems items={navItems} />
+        <div className="relative z-20">
+            <ConnectWalletButton />
+        </div>
+      </NavBody>
 
-      {/* Center: Navigation Links */}
-      <nav className="hidden md:flex flex-grow justify-center">
-        <ul className="flex items-center space-x-6 text-gray-300">
-          <li>
-            <NavLink 
-              to="/" 
-              className="hover:text-white transition-colors"
-              style={({ isActive }) => isActive ? activeLinkStyle : undefined}
-            >
-              Home
-            </NavLink>
-          </li>
-          <li>
-            <NavLink 
-              to="/revoke-erc20" 
-              className="hover:text-white transition-colors"
-              style={({ isActive }) => isActive ? activeLinkStyle : undefined}
-            >
-              Revoke ERC20
-            </NavLink>
-          </li>
-          <li>
-            <NavLink 
-              to="/batch-revoke" 
-              className="hover:text-white transition-colors"
-              style={({ isActive }) => isActive ? activeLinkStyle : undefined}
-            >
-              Batch Revoke
-            </NavLink>
-          </li>
-          <li>
-            <NavLink 
-              to="/auto-revoke" 
-              className="hover:text-white transition-colors"
-              style={({ isActive }) => isActive ? activeLinkStyle : undefined}
-            >
-              Auto Revoke
-            </NavLink>
-          </li>
-          <li>
-            <NavLink 
-              to="/approve-erc20" 
-              className="hover:text-white transition-colors"
-              style={({ isActive }) => isActive ? activeLinkStyle : undefined}
-            >
-              Approve ERC20
-            </NavLink>
-          </li>
-        </ul>
-      </nav>
-
-      {/* Right Side: Connect Button */}
-      <div className="flex-shrink-0">
-        <ConnectWalletButton />
-      </div>
-    </header>
+      {/* --- Mobile Navigation --- */}
+      <MobileNav>
+        <MobileNavHeader>
+          <div className="flex items-center gap-x-2">
+            <Link to="/" className="text-xl font-bold text-white">AutoRevoke</Link>
+          </div>
+          <MobileNavToggle isOpen={isOpen} onClick={() => setIsOpen(!isOpen)} />
+        </MobileNavHeader>
+        <MobileNavMenu isOpen={isOpen} onClose={() => setIsOpen(false)}>
+            <div className="flex flex-col space-y-4">
+                {navItems.map((item, idx) => (
+                    <Link
+                        key={`mobile-link-${idx}`}
+                        to={item.link}
+                        onClick={() => setIsOpen(false)}
+                        className="px-4 py-2 text-neutral-300 hover:text-white"
+                    >
+                        {item.name}
+                    </Link>
+                ))}
+                <div className='px-4 pt-4 border-t border-gray-800'>
+                    <ConnectWalletButton />
+                </div>
+            </div>
+        </MobileNavMenu>
+      </MobileNav>
+    </Navbar>
   );
 };
 

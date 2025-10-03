@@ -20,7 +20,9 @@ interface ApprovalListProps {
 
 const formatAmount = (amount: string) => {
   try {
-    return Number(formatUnits(BigInt(amount), 18)).toLocaleString();
+    const formatted = Number(formatUnits(BigInt(amount), 18));
+    if (formatted > 1e12) return "Unlimited";
+    return formatted.toLocaleString();
   } catch {
     return amount;
   }
@@ -31,12 +33,11 @@ const formatDate = (timestamp?: string | null) => {
   const asNum = typeof timestamp === "string" ? Number(timestamp) : timestamp;
   if (!asNum || isNaN(asNum)) return "-";
   const date = new Date(Number(asNum) * 1000);
-  return date.toLocaleString();
+  return date.toLocaleDateString(); // Shorter format for cards
 };
 
 const ApprovalList: React.FC<ApprovalListProps> = ({ ownerAddress }) => {
   const [approvals, setApprovals] = useState<Approval[]>([]);
-  const [sampleApprovals, setSampleApprovals] = useState<Approval[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,10 +45,7 @@ const ApprovalList: React.FC<ApprovalListProps> = ({ ownerAddress }) => {
     let isMounted = true;
     const fetchApprovalsFromIndexer = async () => {
       if (!ownerAddress || !isAddress(ownerAddress)) {
-        if (isMounted) {
-          setApprovals([]);
-          setSampleApprovals([]);
-        }
+        if (isMounted) setApprovals([]);
         return;
       }
 
@@ -55,15 +53,11 @@ const ApprovalList: React.FC<ApprovalListProps> = ({ ownerAddress }) => {
       setError(null);
 
       const normalized = ownerAddress.toLowerCase();
-
       const graphqlQuery = {
         query: `
-          query GetApprovalsAndSample($addr: String!) {
-            SampleApprovals: Approval(limit: 5, order_by: { blockTimestamp: desc }) {
-              id owner spender tokenAddress amount blockTimestamp
-            }
-            OwnerOrSpender: Approval(
-              where: { _or: [{ owner: { _eq: $addr } }, { spender: { _eq: $addr } }]}
+          query GetApprovals($addr: String!) {
+            Approval(
+              where: { _or: [{ owner: { _eq: $addr } }, { spender: { _eq: $addr } }]},
               order_by: { blockTimestamp: desc }
             ) {
               id owner spender tokenAddress amount blockTimestamp
@@ -80,62 +74,30 @@ const ApprovalList: React.FC<ApprovalListProps> = ({ ownerAddress }) => {
           body: JSON.stringify(graphqlQuery),
         });
 
-        if (!response.ok) {
-          throw new Error(
-            `Cannot reach indexer at ${INDEXER_URL} (HTTP ${response.status})`
-          );
-        }
+        if (!response.ok) throw new Error(`Indexer request failed: ${response.status}`);
+        const data = await response.json();
+        if (data.errors) throw new Error("GraphQL error: " + data.errors.map((e: any) => e.message).join("; "));
 
-        const rawText = await response.text();
-        let data: any;
-        try {
-          data = JSON.parse(rawText);
-        } catch {
-          throw new Error("Response from indexer is not valid JSON.");
-        }
-
-        if (data.errors) {
-          throw new Error("GraphQL error: " + data.errors.map((e: any) => e.message).join("; "));
-        }
-
-        const sampleRows: Approval[] = data?.data?.SampleApprovals ?? [];
-        const ownerOrSpenderRows: Approval[] = data?.data?.OwnerOrSpender ?? [];
-        const activeApprovals = ownerOrSpenderRows.filter(
-          (app) => {
-            try {
-              return BigInt(app.amount) > 0n;
-            } catch {
-              return false;
-            }
+        const activeApprovals = (data?.data?.Approval ?? []).filter(
+          (app: Approval) => {
+            try { return BigInt(app.amount) > 0n; }
+            catch { return false; }
           }
         );
-
-        if (isMounted) {
-          setSampleApprovals(sampleRows);
-          setApprovals(activeApprovals);
-        }
+        if (isMounted) setApprovals(activeApprovals);
       } catch (err: any) {
-        if (isMounted) {
-          setError(
-            err?.message ??
-              "Could not connect to the indexer backend. Make sure it is running locally."
-          );
-        }
+        if (isMounted) setError(err?.message ?? "Could not connect to the indexer.");
       } finally {
         if (isMounted) setIsLoading(false);
       }
     };
-
     fetchApprovalsFromIndexer();
-
-    return () => {
-      isMounted = false;
-    };
+    return () => { isMounted = false; };
   }, [ownerAddress]);
 
   if (!ownerAddress) {
     return (
-      <div className="text-center p-8 text-gray-500">
+      <div className="text-center p-8 text-gray-400">
         Please select an account to view approvals.
       </div>
     );
@@ -143,86 +105,50 @@ const ApprovalList: React.FC<ApprovalListProps> = ({ ownerAddress }) => {
 
   if (isLoading) {
     return (
-      <div className="text-center p-8 animate-pulse text-gray-500">
-        Loading approvals from indexer...
+      <div className="text-center p-8 text-gray-300 animate-pulse">
+        Loading approvals...
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="text-center p-8 text-red-500 bg-red-50 rounded-lg">{error}</div>
+      <div className="text-center p-8 text-red-400 bg-red-900/20 rounded-lg">{error}</div>
     );
   }
 
-  // Approval table for matches
-  if (approvals.length > 0) {
+  if (approvals.length === 0) {
     return (
-      <div className="mt-6 border rounded-lg shadow-md bg-white w-full max-w-4xl mx-auto">
-        <table className="w-full text-left table-auto">
-          <thead className="bg-gray-50 border-b">
-            <tr>
-              <th className="p-4 font-semibold">Token Address</th>
-              <th className="p-4 font-semibold">Owner</th>
-              <th className="p-4 font-semibold">Spender</th>
-              <th className="p-4 font-semibold text-right">Allowance (approx)</th>
-              <th className="p-4 font-semibold text-right">Block Time</th>
-            </tr>
-          </thead>
-          <tbody>
-            {approvals.map((approval) => (
-              <tr key={approval.id} className="border-b last-border-b-0 hover:bg-gray-50 transition-colors">
-                <td className="p-4 text-sm font-mono break-all">{approval.tokenAddress}</td>
-                <td className="p-4 text-sm font-mono break-all">{approval.owner || "-"}</td>
-                <td className="p-4 text-sm font-mono break-all">{approval.spender}</td>
-                <td className="p-4 text-right font-semibold">{formatAmount(approval.amount)}</td>
-                <td className="p-4 text-right text-sm text-gray-500">{formatDate(approval.blockTimestamp)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="text-center p-8 text-gray-400">
+        No active approvals found for this account.
       </div>
     );
   }
 
-  // No matches → Show sample data
   return (
-    <div className="mt-6 max-w-4xl mx-auto text-center">
-      <p className="text-gray-600 mb-4">
-        No active approvals found for <span className="font-mono bg-gray-100 p-1 rounded">{ownerAddress}</span>.
-      </p>
-      <div className="bg-white border rounded-lg p-4 shadow-sm">
-        <h3 className="text-left font-semibold mb-2">Sample approvals from the indexer (latest 5 rows)</h3>
-        {sampleApprovals.length === 0 ? (
-          <div className="text-gray-500">No approvals in the indexer yet.</div>
-        ) : (
-          <table className="w-full text-left table-auto">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="p-2 text-xs font-semibold">Owner</th>
-                <th className="p-2 text-xs font-semibold">Spender</th>
-                <th className="p-2 text-xs font-semibold">Token</th>
-                <th className="p-2 text-xs font-semibold">Amount</th>
-                <th className="p-2 text-xs font-semibold">Block Time</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sampleApprovals.map((s) => (
-                <tr key={s.id} className="border-b">
-                  <td className="p-2 text-xs font-mono break-all">{s.owner || "-"}</td>
-                  <td className="p-2 text-xs font-mono break-all">{s.spender}</td>
-                  <td className="p-2 text-xs font-mono break-all">{s.tokenAddress}</td>
-                  <td className="p-2 text-xs">{formatAmount(s.amount)}</td>
-                  <td className="p-2 text-xs text-gray-500">{formatDate(s.blockTimestamp)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-      <p className="text-sm text-gray-500 mt-3">
-        Tip: the indexer stores approvals by the owner. If nothing shows up, toggle accounts or check your indexer configuration.
-      </p>
+    <div className="space-y-3">
+      {approvals.map((approval) => (
+        <div key={approval.id} className="approval-card">
+          <div className="flex justify-between items-center">
+            <span className="font-mono text-sm text-gray-300 truncate" title={approval.tokenAddress}>
+              Token: {approval.tokenAddress.slice(0, 6)}...{approval.tokenAddress.slice(-4)}
+            </span>
+            <span className="text-xs text-gray-500">{formatDate(approval.blockTimestamp)}</span>
+          </div>
+          <div className="mt-3">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-400">Spender</span>
+              <span className="font-mono text-gray-200 truncate" title={approval.spender}>
+                {approval.spender.slice(0, 10)}...{approval.spender.slice(-4)}
+              </span>
+            </div>
+            <div className="flex justify-between text-sm mt-1">
+              <span className="text-gray-400">Allowance</span>
+              <span className="font-semibold text-purple-400">{formatAmount(approval.amount)}</span>
+            </div>
+          </div>
+        </div>
+      ))}
     </div>
   );
 };
