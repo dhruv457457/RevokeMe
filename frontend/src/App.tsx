@@ -22,7 +22,7 @@ function App() {
           <Router>
             <div className="min-h-screen flex flex-col">
               <NavBar />
-              <main className="flex-grow ">
+              <main className="flex-grow border border-t-[#333336]">
                 <Routes>
                   <Route path="/" element={<Home />} />
                   <Route path="/revoke-erc20" element={<RevokeERC20 />} />

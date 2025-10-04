@@ -2,7 +2,7 @@ import React from 'react';
 
 const Footer: React.FC = () => {
   return (
-    <footer className="bg-[#09090B] text-white p-10 ">
+    <footer className=" text-white p-10 ">
       <div className="max-w-7xl mx-auto p-10 rounded-3xl border border-[#333336]">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-10">
           {/* Column 1: RevokeMe Info */}

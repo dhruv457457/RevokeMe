@@ -22,7 +22,7 @@ const Home: React.FC = () => {
   }
 
   return (
-    <div className="w-full bg-[#09090B] text-white min-h-screen">
+    <div className="w-full text-white min-h-screen">
       <HeroSection />
       {/* Approvals Dashboard Section */}
       <section className="py-16 px-4">
