@@ -4,10 +4,9 @@ import { useSmartAccount } from './useSmartAccount';
 import { encodeFunctionData, getAddress, isAddress, type Address } from 'viem';
 
 const INDEXER_URL = import.meta.env.VITE_INDEXER_URL as string;
-const erc20Abi = [
-  { inputs: [{ name: 'spender', type: 'address' }, { name: 'amount', type: 'uint256' }], name: 'approve', outputs: [{ name: '', type: 'bool' }], stateMutability: 'nonpayable', type: 'function' }
-] as const;
+const erc20Abi = [ { inputs: [{ name: 'spender', type: 'address' }, { name: 'amount', type: 'uint256' }], name: 'approve', outputs: [{ name: '', type: 'bool' }], stateMutability: 'nonpayable', type: 'function' } ] as const;
 
+// --- Interfaces ---
 interface DelegationGrant {
   owner: Address;
   expiry: bigint;
@@ -19,190 +18,200 @@ interface Approval {
   owner: `0x${string}`;
   amount: string;
 }
+export interface AutoRevokeSettings {
+  whitelist: string[];
+  blacklist: string[];
+  batchingPeriod: number; // in seconds
+}
 
+// --- Local Storage Keys ---
 const GRANT_STORAGE_KEY = 'autoRevokeDelegationGrant';
+const SETTINGS_STORAGE_KEY = 'autoRevokeSettings';
+const BATCH_STORAGE_KEY = 'autoRevokeBatch';
 
 export const useAutoRevoke = () => {
   const { address: eoaAddress, chain } = useAccount();
   const { smartAccount, pimlicoClient, smartClient } = useSmartAccount();
-  
   const { signTypedDataAsync } = useSignTypedData();
   
   const [grant, setGrant] = useState<DelegationGrant | null>(null);
   const [status, setStatus] = useState<string>('Inactive');
+  const [settings, setSettings] = useState<AutoRevokeSettings>({ whitelist: [], blacklist: [], batchingPeriod: 300 });
+  const [approvalsToBatch, setApprovalsToBatch] = useState<Approval[]>([]);
   const isProcessing = useRef(false);
-  const savedWatcherCallback = useRef<() => void>(undefined);
+  
+  // ✨ FIX: useRef requires an initial value.
+  const watcherCallbackRef = useRef<(() => void) | null>(null);
+  const batcherCallbackRef = useRef<(() => void) | null>(null);
 
-  // Load grant from localStorage on startup
+  // Load state from localStorage on startup
   useEffect(() => {
+    if (!eoaAddress) return;
+
     const savedGrant = localStorage.getItem(GRANT_STORAGE_KEY);
     if (savedGrant) {
       const parsed = JSON.parse(savedGrant, (key, value) => (key === 'expiry') ? BigInt(value) : value);
-      if (parsed.owner === eoaAddress && parsed.expiry > BigInt(Math.floor(Date.now() / 1000))) {
+      if (parsed.owner.toLowerCase() === eoaAddress.toLowerCase() && parsed.expiry > BigInt(Math.floor(Date.now() / 1000))) {
         setGrant(parsed);
+      } else {
+        localStorage.removeItem(GRANT_STORAGE_KEY);
       }
     }
+    const savedSettings = localStorage.getItem(SETTINGS_STORAGE_KEY);
+    if (savedSettings) setSettings(JSON.parse(savedSettings));
+    const savedBatch = localStorage.getItem(BATCH_STORAGE_KEY);
+    if (savedBatch) setApprovalsToBatch(JSON.parse(savedBatch));
   }, [eoaAddress]);
   
-  const triggerAutoRevoke = useCallback(async (approval: Approval): Promise<boolean> => {
-    if (!smartAccount || !pimlicoClient || !smartClient || !isAddress(approval.tokenAddress) || !isAddress(approval.spender)) {
-      console.error("--- DEBUG: Invalid smartAccount, pimlicoClient, smartClient, or addresses ---", { smartAccount, pimlicoClient, smartClient, tokenAddress: approval.tokenAddress, spender: approval.spender });
-      setStatus('Auto-revoke failed: Invalid setup or addresses.');
-      return false;
+  // Core Revocation Logic
+  const triggerRevokeBatch = useCallback(async (approvals: Approval[]) => {
+    if (!smartAccount || !pimlicoClient || !smartClient || approvals.length === 0) {
+      setStatus('Batch revoke failed: Invalid setup.');
+      return;
     }
-
+    isProcessing.current = true;
     try {
-      let fee;
-      let lastError;
-      for (let attempt = 1; attempt <= 3; attempt++) {
-        try {
-          fee = await pimlicoClient.getUserOperationGasPrice();
-          break;
-        } catch (e) {
-          lastError = e;
-          console.warn(`--- DEBUG: Gas price fetch attempt ${attempt} failed ---`, e);
-          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
-        }
-      }
-      if (!fee) {
-        throw lastError || new Error('Failed to fetch gas prices after retries.');
-      }
-
+      const calls = approvals.map(app => ({
+        to: getAddress(app.tokenAddress),
+        data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [getAddress(app.spender), 0n] }),
+        value: 0n
+      }));
+      const fee = await pimlicoClient.getUserOperationGasPrice();
       const opHash = await smartClient.sendUserOperation({
-        calls: [{
-          to: getAddress(approval.tokenAddress),
-          data: encodeFunctionData({
-            abi: erc20Abi,
-            functionName: 'approve',
-            args: [getAddress(approval.spender), BigInt(0)]
-          }),
-          value: BigInt(0)
-        }],
+        calls,
         maxFeePerGas: fee.fast.maxFeePerGas,
         maxPriorityFeePerGas: fee.fast.maxPriorityFeePerGas,
       });
-      setStatus(`Auto-revoke sent for ${approval.id}. Waiting...`);
+      setStatus(`Batch of ${approvals.length} sent. Waiting...`);
       const { receipt } = await pimlicoClient.waitForUserOperationReceipt({ hash: opHash });
-      setStatus(`Auto-revoke successful! TX: ${receipt.transactionHash}`);
-      return true;
+      setStatus(`Batch successful! TX: ${receipt.transactionHash.slice(0, 12)}...`);
     } catch (e: any) {
-      console.error("--- DEBUG: Auto-revoke transaction failed ---", e);
-      setStatus(`Auto-revoke failed: ${e.message || 'Check console.'}`);
-      return false;
+      console.error("Batch revoke transaction failed", e);
+      setStatus(`Batch revoke failed: ${e.shortMessage || 'Check console.'}`);
+      setApprovalsToBatch(prev => [...prev, ...approvals]);
+    } finally {
+      isProcessing.current = false;
     }
   }, [smartAccount, pimlicoClient, smartClient]);
 
-  const checkForUnseenApprovals = useCallback(async () => {
-    console.log(`%c[Watcher] Tick! Starting check... (isProcessing: ${isProcessing.current})`, 'color: gray');
-    if (isProcessing.current || !smartAccount?.address || !smartClient) {
-      if (isProcessing.current) console.log("%c[Watcher] Locked. Skipping this check.", 'color: orange');
-      if (!smartAccount?.address) console.log("%c[Watcher] No smart account address.", 'color: orange');
-      if (!smartClient) console.log("%c[Watcher] No smart client.", 'color: orange');
-      setStatus('Inactive: Smart account not ready.');
-      return;
-    }
+  // Logic for the Watcher and Batcher (kept up-to-date by the ref)
+  useEffect(() => {
+    watcherCallbackRef.current = async () => {
+      if (isProcessing.current || !smartAccount?.address) return;
+      console.log('%c[DEBUG] Watcher Tick...', 'color: gray');
 
-    setStatus(`Watching for new approvals...`);
-    const graphqlQuery = {
-      query: `query GetAllApprovals($addr: String!) { Approval(where: {_or: [{owner: {_eq: $addr}}, {spender: {_eq: $addr}}]}) { id tokenAddress spender owner amount } }`,
-      variables: { addr: smartAccount.address.toLowerCase() },
-    };
+      try {
+        const graphqlQuery = { query: `query GetAllApprovals($addr: String!) { Approval(where: {owner: {_eq: $addr}, amount: {_gt: "0"}}) { id tokenAddress spender owner amount } }`, variables: { addr: smartAccount.address.toLowerCase() }};
+        const response = await fetch(INDEXER_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(graphqlQuery) });
+        const data = await response.json();
+        const allActiveApprovals: Approval[] = data?.data?.Approval ?? [];
 
-    try {
-      const response = await fetch(INDEXER_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(graphqlQuery) });
-      const data = await response.json();
-      console.log("[Watcher] Indexer response:", data);
-      
-      const allActiveApprovals: Approval[] = (data?.data?.Approval ?? []).filter((app: Approval) => {
-        try { return BigInt(app.amount) > 0; } catch { return false; }
-      });
-      const approvalToRevoke = allActiveApprovals.find(app => app.owner.toLowerCase() === smartAccount.address.toLowerCase());
-      console.log("[Watcher] Found approval to revoke:", approvalToRevoke || "None");
+        const newApprovalsToProcess: Approval[] = [];
+        const approvalsForImmediateRevoke: Approval[] = [];
+        const currentBatchIds = new Set(approvalsToBatch.map(a => a.id));
 
-      if (approvalToRevoke) {
-        isProcessing.current = true;
-        console.log(`%c[Watcher] LOCKING. Processing: ${approvalToRevoke.id}`, 'color: blue; font-weight: bold;');
-        setStatus(`Found new approval for ${approvalToRevoke.tokenAddress}. Triggering...`);
-        try {
-          await triggerAutoRevoke(approvalToRevoke);
-        } finally {
-          console.log(`%c[Watcher] UNLOCKING. Finished processing.`, 'color: blue; font-weight: bold;');
-          isProcessing.current = false;
+        for (const approval of allActiveApprovals) {
+          if (currentBatchIds.has(approval.id)) continue;
+          const spender = approval.spender.toLowerCase();
+          if (settings.whitelist.some(w => w.toLowerCase() === spender)) continue;
+          if (settings.blacklist.some(b => b.toLowerCase() === spender)) {
+            approvalsForImmediateRevoke.push(approval);
+          } else {
+            newApprovalsToProcess.push(approval);
+          }
         }
+
+        if (approvalsForImmediateRevoke.length > 0) {
+          setStatus(`Blacklisted spender found! Immediately revoking...`);
+          triggerRevokeBatch(approvalsForImmediateRevoke);
+        }
+
+        if (newApprovalsToProcess.length > 0) {
+          const updatedBatch = [...approvalsToBatch, ...newApprovalsToProcess];
+          setApprovalsToBatch(updatedBatch);
+          localStorage.setItem(BATCH_STORAGE_KEY, JSON.stringify(updatedBatch));
+        }
+      } catch (e) { console.error("Watcher error:", e); setStatus('Watcher failed to fetch.'); }
+    };
+    
+    batcherCallbackRef.current = () => {
+      if (approvalsToBatch.length > 0 && !isProcessing.current) {
+        console.log(`%c[DEBUG] Batcher Tick... Processing ${approvalsToBatch.length} approvals.`, 'color: blue; font-weight: bold;');
+        const batchToProcess = [...approvalsToBatch];
+        setApprovalsToBatch([]);
+        localStorage.removeItem(BATCH_STORAGE_KEY);
+        triggerRevokeBatch(batchToProcess);
       }
-    } catch (e) { 
-      console.error("--- DEBUG: Watcher failed to fetch ---", e);
-      setStatus('Watcher failed to fetch approvals.');
-      isProcessing.current = false;
-    }
-  }, [smartAccount, smartClient, triggerAutoRevoke]);
+    };
+  }, [settings, smartAccount, approvalsToBatch, triggerRevokeBatch]);
 
-  useEffect(() => {
-    savedWatcherCallback.current = checkForUnseenApprovals;
-  }, [checkForUnseenApprovals]);
 
+  // Master useEffect to control timers
   useEffect(() => {
-    if (!grant || !smartAccount?.address || !smartClient) {
-      setStatus('Inactive: Awaiting authorization or smart account setup.');
+    if (!grant) {
+      setStatus('Inactive: Awaiting authorization.');
       return;
     }
+
+    const watcherTick = () => watcherCallbackRef.current?.();
+    const batcherTick = () => batcherCallbackRef.current?.();
     
-    function tick() {
-      if (savedWatcherCallback.current) {
-        savedWatcherCallback.current();
-      }
-    }
+    console.log('%c[DEBUG] Starting timers...', 'color: green');
+    const watcherInterval = setInterval(watcherTick, 15000);
+    const batcherInterval = setInterval(batcherTick, settings.batchingPeriod * 1000);
 
-    tick();
-    const intervalId = setInterval(tick, 15000);
-    return () => clearInterval(intervalId);
-  }, [grant, smartAccount, smartClient]);
+    return () => {
+      console.log('%c[DEBUG] STOP! Clearing timers.', 'color: red; font-weight: bold;');
+      clearInterval(watcherInterval);
+      clearInterval(batcherInterval);
+    };
+  }, [grant, settings.batchingPeriod]);
 
+  
+  // Authorization and Settings Management
   const authorizeAutoRevoke = async () => {
     if (!eoaAddress || !smartAccount) {
       setStatus('Authorization failed: No EOA or smart account.');
       return;
     }
-
     try {
-      const expiry = BigInt(Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7); // 7 days
-      const domain = {
-        name: 'AutoRevokeDelegation',
-        version: '1',
-        chainId: chain?.id,
-        verifyingContract: smartAccount.address,
-      };
-      const types = {
-        Delegation: [
-          { name: 'owner', type: 'address' },
-          { name: 'expiry', type: 'uint256' },
-        ],
-      };
-      const value = {
-        owner: eoaAddress,
-        expiry,
-      };
-
-      const signature = await signTypedDataAsync({ domain, types, primaryType: 'Delegation', message: value });
-      // Note: In a real setup, you'd send this signature to the smart account or backend to enable delegation.
-      // For this example, we're just simulating by storing the grant locally.
-      console.log('Delegation signed:', signature);
-
+      const expiry = BigInt(Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7);
+      const domain = { name: 'AutoRevokeDelegation', version: '1', chainId: chain?.id, verifyingContract: smartAccount.address, };
+      const types = { Delegation: [ { name: 'owner', type: 'address' }, { name: 'expiry', type: 'uint256' }, ], };
+      const value = { owner: eoaAddress, expiry, };
+      await signTypedDataAsync({ domain, types, primaryType: 'Delegation', message: value });
       const newGrant: DelegationGrant = { owner: eoaAddress, expiry };
       setGrant(newGrant);
-      localStorage.setItem(GRANT_STORAGE_KEY, JSON.stringify(newGrant, (_, value) => typeof value === 'bigint' ? value.toString() : value));
+      localStorage.setItem(GRANT_STORAGE_KEY, JSON.stringify(newGrant, (_, val) => typeof val === 'bigint' ? val.toString() : val));
       setStatus('Authorized successfully!');
     } catch (e: any) {
       console.error('Authorization failed:', e);
       setStatus(`Authorization failed: ${e.message || 'Check console.'}`);
     }
   };
-
+  
   const revokeAuthorization = () => {
+    console.log('%c[DEBUG] revokeAuthorization called!', 'color: orange');
     setGrant(null);
     localStorage.removeItem(GRANT_STORAGE_KEY);
     setStatus('Inactive: Authorization revoked.');
   };
 
-  return { grant, status, authorizeAutoRevoke, revokeAuthorization };
-}
+  const updateSettings = (newSettings: Partial<AutoRevokeSettings>) => {
+    setSettings(prev => {
+      const updated = { ...prev, ...newSettings };
+      localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  return { 
+    grant, 
+    status, 
+    authorizeAutoRevoke, 
+    revokeAuthorization,
+    settings,
+    updateSettings,
+    approvalsToBatch
+  };
+};

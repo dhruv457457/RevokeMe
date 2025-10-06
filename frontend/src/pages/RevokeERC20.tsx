@@ -5,7 +5,6 @@ import { encodeFunctionData, isAddress, getAddress, formatUnits, zeroAddress } f
 import {
   revocationModuleFactoryAddress,
   revocationModuleFactoryAbi,
-  // revocationModuleAbi // No longer needed here
 } from '../lib/contracts/contracts';
 
 // ERC20 ABI
@@ -23,7 +22,6 @@ const erc20Abi = [
 ] as const;
 
 const INDEXER_URL = import.meta.env.VITE_INDEXER_URL as string;
-const PIMLICO_API_KEY = import.meta.env.VITE_PIMLICO_API_KEY;
 
 interface Approval {
   id: string;
