@@ -39,7 +39,7 @@ const SmartAccountDetails: React.FC = () => {
     const address = smartAccount?.address;
 
     return (
-        <div className="bg-gray-900 border border-gray-700 rounded-lg p-4 h-full flex flex-col justify-between">
+        <div className="border border-[#333336] bg-[#0C0C0E] rounded-3xl p-4 h-full flex flex-col justify-between">
             <div>
                 <h3 className="text-sm font-semibold text-purple-400">Delegation Wallet (Smart Account)</h3>
                 {isSettingUp && <p className="text-gray-400 text-xs mt-2 animate-pulse">Initializing...</p>}

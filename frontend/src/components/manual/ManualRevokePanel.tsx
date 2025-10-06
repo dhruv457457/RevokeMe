@@ -154,7 +154,7 @@ const ManualRevokePanel: React.FC = () => {
 
     return (
         // FIX: Added `h-full flex flex-col` to make the panel stretch and organize content vertically
-        <div className="bg-gray-900 border border-gray-700 rounded-lg shadow-lg p-6 h-full flex flex-col">
+        <div className="border border-[#333336] bg-[#0C0C0E] rounded-3xl shadow-lg p-6 h-full flex flex-col">
             {/* Header Section */}
             <div className="flex-shrink-0">
                 <h2 className="text-xl font-bold mb-4 text-gray-200">Manual Approval Management</h2>

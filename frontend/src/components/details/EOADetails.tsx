@@ -31,7 +31,7 @@ const EOADetails: React.FC = () => {
     const balance = balanceData ? formatEther(balanceData.value) : '0';
 
     return (
-        <div className="bg-gray-900 border border-gray-700 rounded-lg p-4 h-full flex flex-col justify-between">
+        <div className="border border-[#333336] bg-[#0C0C0E] rounded-3xl p-4 h-full flex flex-col justify-between">
             <div>
                 <h3 className="text-sm font-semibold text-blue-400">Connected Wallet (EOA)</h3>
                 <div className="mt-2 flex items-center gap-2">

@@ -19,7 +19,7 @@ const AutoRevokePanel: React.FC = () => {
     }
 
     return (
-        <div className="bg-gray-900 border border-gray-700 rounded-lg shadow-lg p-6 space-y-6 h-full">
+        <div className="border border-[#333336] bg-[#0C0C0E] rounded-3xl shadow-lg p-6 space-y-6 h-full">
             <div className="text-center border-b border-gray-700 pb-4">
                 <h2 className="text-xl font-bold text-gray-200">Auto-Revoke Terminal</h2>
                 <p className="text-sm text-gray-400 mt-1">Automated protection for your Smart Account</p>

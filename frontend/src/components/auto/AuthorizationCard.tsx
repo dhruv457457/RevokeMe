@@ -27,7 +27,7 @@ const AuthorizationCard: React.FC<Props> = ({ grant, onAuthorize, onRevoke }) =>
       </div>
       <button
         onClick={isActive ? onRevoke : onAuthorize}
-        className={`w-32 px-4 py-2 font-bold rounded-lg text-white transition-colors ${isActive ? 'bg-red-600 hover:bg-red-700' : 'bg-purple-600 hover:bg-purple-700'}`}
+        className={`w-28 px-4 py-2 font-bold rounded-3xl text-white transition-colors ${isActive ? 'bg-red-600 hover:bg-red-700' : 'bg-purple-600 hover:bg-purple-700'}`}
       >
         {isActive ? 'Shutdown' : 'Authorize'}
       </button>
