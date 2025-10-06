@@ -8,7 +8,6 @@ import NavBar from "./components/NavBar";
 import Footer from "./components/Footer"; 
 import Home from "./pages/Home";
 import RevokeERC20 from "./pages/RevokeERC20";
-import SmartAccountSetup from "./components/SmartAccountSetup";
 import AutoRevokePage from "./pages/AutoRevokePage";
 import ApproveERC20 from "./pages/ApproveERC20";
 
@@ -29,7 +28,6 @@ function App() {
                   <Route path="/auto-revoke" element={<AutoRevokePage />} />
                   <Route path="/approve-erc20" element={<ApproveERC20 />} />      
                 </Routes>
-                <SmartAccountSetup />
               </main>
               <Footer /> 
             </div>

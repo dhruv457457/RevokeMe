@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useAutoRevoke, type AutoRevokeSettings } from '../hooks/useAutoRevoke';
+import { useAutoRevoke } from '../hooks/useAutoRevoke';
 import { useSmartAccount } from '../hooks/useSmartAccount';
 import { isAddress, getAddress } from 'viem';
 

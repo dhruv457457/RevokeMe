@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAccount, useSignTypedData } from 'wagmi';
 import { useSmartAccount } from './useSmartAccount';
-import { encodeFunctionData, getAddress, isAddress, type Address } from 'viem';
+import { encodeFunctionData, getAddress ,type Address } from 'viem';
 
 const INDEXER_URL = import.meta.env.VITE_INDEXER_URL as string;
 const erc20Abi = [ { inputs: [{ name: 'spender', type: 'address' }, { name: 'amount', type: 'uint256' }], name: 'approve', outputs: [{ name: '', type: 'bool' }], stateMutability: 'nonpayable', type: 'function' } ] as const;
