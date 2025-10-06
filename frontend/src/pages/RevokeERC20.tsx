@@ -5,7 +5,7 @@ import { encodeFunctionData, isAddress, getAddress, formatUnits, zeroAddress } f
 import {
   revocationModuleFactoryAddress,
   revocationModuleFactoryAbi,
-  revocationModuleAbi
+  // revocationModuleAbi // No longer needed here
 } from '../lib/contracts/contracts';
 
 // ERC20 ABI
@@ -82,10 +82,13 @@ const RevokeERC20Page: React.FC = () => {
 
   useEffect(() => {
     if (isCreationSuccess) {
-      setStatus({ type: 'success', message: 'Module created successfully! You can now batch revoke.' });
-      refetchModuleAddress();
+      // Check if the message is already about module creation to avoid overwriting other statuses
+      if(status.message.includes('Deploying')) {
+        setStatus({ type: 'success', message: 'Module created successfully! You can now batch revoke.' });
+        refetchModuleAddress();
+      }
     }
-  }, [isCreationSuccess, refetchModuleAddress]);
+  }, [isCreationSuccess, refetchModuleAddress, status.message]);
   
   // Fetch approvals logic
   useEffect(() => {
@@ -128,109 +131,109 @@ const RevokeERC20Page: React.FC = () => {
   
   // Single revoke logic
   const handleRevokeSingle = async (approval: Approval) => {
-    setStatus({ type: 'loading', message: 'Preparing to revoke approval...' });
+    // This function will now be the single source of truth for any revoke transaction
     const { tokenAddress, spender } = approval;
     if (!isAddress(tokenAddress) || !isAddress(spender)) {
       setStatus({ type: 'error', message: 'Invalid addresses.' });
-      return;
+      throw new Error("Invalid addresses");
     }
-    try {
-      if (accountType === 'smart') {
-        if (!smartAccount || !pimlicoClient || !smartClient || !PIMLICO_API_KEY) {
-          setStatus({ type: 'error', message: 'Smart Account setup required.' });
-          return;
-        }
-        const fee = await pimlicoClient.getUserOperationGasPrice();
-        const opHash = await smartClient.sendUserOperation({
-          calls: [{
-            to: getAddress(tokenAddress),
-            data: encodeFunctionData({
-              abi: erc20Abi,
-              functionName: 'approve',
-              args: [getAddress(spender), BigInt(0)]
-            }),
-            value: BigInt(0)
-          }],
-          maxFeePerGas: fee.fast.maxFeePerGas,
-          maxPriorityFeePerGas: fee.fast.maxPriorityFeePerGas,
-        });
-        setStatus({ type: 'loading', message: `Transaction sent, waiting for confirmation...` });
-        const { receipt } = await pimlicoClient.waitForUserOperationReceipt({ hash: opHash });
-        setStatus({ type: 'success', message: `Revoked! TX hash: ${receipt.transactionHash}` });
-      } else {
-        const txHash = await writeContractAsync({
-          address: getAddress(tokenAddress),
-          abi: erc20Abi,
-          functionName: 'approve',
-          args: [getAddress(spender), BigInt(0)]
-        });
-        setStatus({ type: 'success', message: `Revoked! TX hash: ${txHash}` });
+   
+    if (accountType === 'smart') {
+      if (!smartAccount || !pimlicoClient || !smartClient) {
+        throw new Error('Smart Account setup required.');
       }
-    } catch (e: any) {
-      setStatus({ type: 'error', message: e?.shortMessage || 'Error revoking.' });
+      const fee = await pimlicoClient.getUserOperationGasPrice();
+      const opHash = await smartClient.sendUserOperation({
+        calls: [{
+          to: getAddress(tokenAddress),
+          data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [getAddress(spender), 0n] }),
+          value: 0n
+        }],
+        maxFeePerGas: fee.fast.maxFeePerGas,
+        maxPriorityFeePerGas: fee.fast.maxPriorityFeePerGas,
+      });
+      setStatus({ type: 'loading', message: `Transaction sent, waiting for confirmation...` });
+      const { receipt } = await pimlicoClient.waitForUserOperationReceipt({ hash: opHash });
+      setStatus({ type: 'success', message: `Revoked! TX hash: ${receipt.transactionHash}` });
+    } else {
+      const txHash = await writeContractAsync({
+        address: getAddress(tokenAddress),
+        abi: erc20Abi,
+        functionName: 'approve',
+        args: [getAddress(spender), 0n]
+      });
+      setStatus({ type: 'success', message: `Revoked! TX hash: ${txHash}` });
     }
   };
 
-  // REVISED: Batch Revoke to handle EOA module creation
- // FINAL REVISION: Batch Revoke with correct EOA handling
-const handleRevokeBatch = async () => {
-  const approvalsToRevoke = approvals.filter(a => checkedIds.includes(a.id));
-  if (approvalsToRevoke.length === 0) return;
-
-  try {
-    if (accountType === 'smart') {
-      // Smart Account logic is correct and uses native batching.
-      setStatus({ type: 'loading', message: `Preparing to batch revoke ${approvalsToRevoke.length} approvals...` });
-      if (!smartAccount || !pimlicoClient || !smartClient) { throw new Error('Smart Account setup required.'); }
-      
-      const calls = approvalsToRevoke.map(approval => ({
-          to: getAddress(approval.tokenAddress),
-          data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [getAddress(approval.spender), 0n] }),
-          value: 0n,
-      }));
-      const fee = await pimlicoClient.getUserOperationGasPrice();
-      const opHash = await smartClient.sendUserOperation({ calls, maxFeePerGas: fee.fast.maxFee-per-gas, maxPriorityFeePerGas: fee.fast.max-priority-fee-per-gas });
-      
-      setStatus({ type: 'loading', message: 'Batch transaction sent, waiting for confirmation...' });
-      const { receipt } = await pimlicoClient.waitForUserOperationReceipt({ hash: opHash });
-      setStatus({ type: 'success', message: `Batch revoked! TX hash: ${receipt.transactionHash}` });
-    } else {
-      // EOA LOGIC: Revert to sequential transactions. This is the only way for EOAs.
-      setStatus({ type: 'loading', message: `Preparing to revoke ${approvalsToRevoke.length} approvals one by one...` });
-      
-      let successCount = 0;
-      for (const approval of approvalsToRevoke) {
-        try {
-          setStatus({ type: 'loading', message: `Revoking approval for ${formatAddress(approval.spender)}... (${successCount + 1}/${approvalsToRevoke.length})`});
-          // We can reuse the single revoke logic, which is correct.
-          await handleRevokeSingle(approval);
-          successCount++;
-        } catch (e: any) {
-          setStatus({ type: 'error', message: `Failed to revoke for ${formatAddress(approval.spender)}. Error: ${e.shortMessage}. Aborting.` });
-          return; // Stop on first failure
-        }
-      }
-      setStatus({ type: 'success', message: `Successfully revoked ${successCount} approvals.` });
+  const handleCreateModule = async () => {
+    try {
+      setStatus({ type: 'loading', message: 'One-time setup: Deploying your personal revocation module...' });
+      await writeContractAsync({
+        address: revocationModuleFactoryAddress,
+        abi: revocationModuleFactoryAbi,
+        functionName: 'createModule'
+      });
+    } catch(e: any) {
+        setStatus({ type: 'error', message: e?.shortMessage || 'Module creation failed.' });
     }
-  } catch (e: any) {
-    setStatus({ type: 'error', message: e?.shortMessage || 'An unexpected error occurred.' });
-  } finally {
-    setCheckedIds([]);
   }
-};
+
+  const handleRevokeBatch = async () => {
+    const approvalsToRevoke = approvals.filter(a => checkedIds.includes(a.id));
+    if (approvalsToRevoke.length === 0) return;
+  
+    try {
+      if (accountType === 'smart') {
+        setStatus({ type: 'loading', message: `Preparing to batch revoke ${approvalsToRevoke.length} approvals...` });
+        if (!smartAccount || !pimlicoClient || !smartClient) { throw new Error('Smart Account setup required.'); }
+        
+        const calls = approvalsToRevoke.map(approval => ({
+            to: getAddress(approval.tokenAddress),
+            data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [getAddress(approval.spender), 0n] }),
+            value: 0n,
+        }));
+        const fee = await pimlicoClient.getUserOperationGasPrice();
+        const opHash = await smartClient.sendUserOperation({ 
+            calls, 
+            maxFeePerGas: fee.fast.maxFeePerGas, // <-- FIX: Corrected property name
+            maxPriorityFeePerGas: fee.fast.maxPriorityFeePerGas // <-- FIX: Corrected property name
+        });
+        
+        setStatus({ type: 'loading', message: 'Batch transaction sent, waiting for confirmation...' });
+        const { receipt } = await pimlicoClient.waitForUserOperationReceipt({ hash: opHash });
+        setStatus({ type: 'success', message: `Batch revoked! TX hash: ${receipt.transactionHash}` });
+      } else {
+        setStatus({ type: 'loading', message: `Preparing to revoke ${approvalsToRevoke.length} approvals one by one...` });
+        
+        let successCount = 0;
+        for (const approval of approvalsToRevoke) {
+          try {
+            setStatus({ type: 'loading', message: `Revoking for ${formatAddress(approval.spender)}... (${successCount + 1}/${approvalsToRevoke.length})`});
+            await handleRevokeSingle(approval);
+            successCount++;
+          } catch (e: any) {
+            setStatus({ type: 'error', message: `Failed to revoke for ${formatAddress(approval.spender)}. Error: ${e.shortMessage}. Aborting.` });
+            return;
+          }
+        }
+        setStatus({ type: 'success', message: `Successfully revoked ${successCount} approvals.` });
+      }
+    } catch (e: any) {
+      setStatus({ type: 'error', message: e?.shortMessage || 'An unexpected error occurred.' });
+    } finally {
+      setCheckedIds([]);
+    }
+  };
 
   // DETERMINE BUTTON TEXT AND DISABLED STATE
   const getButtonState = () => {
     const isLoadingState = status.type === 'loading';
     if (accountType === 'eoa') {
-      if (isCheckingModule) {
-        return { text: 'Checking Setup...', disabled: true };
-      }
-      if (!userModuleAddress || userModuleAddress === zeroAddress) {
-        return { text: 'One-Time Setup: Create Module', disabled: isLoadingState };
-      }
+      if (isCheckingModule) return { text: 'Checking Setup...', disabled: true, action: () => {} };
+      if (!userModuleAddress || userModuleAddress === zeroAddress) return { text: 'Enable Batch Revoke (One-Time Setup)', disabled: isLoadingState, action: handleCreateModule };
     }
-    return { text: `Revoke Selected (${checkedIds.length})`, disabled: checkedIds.length === 0 || isLoadingState };
+    return { text: `Revoke Selected (${checkedIds.length})`, disabled: checkedIds.length === 0 || isLoadingState, action: handleRevokeBatch };
   };
 
   const buttonState = getButtonState();
@@ -302,7 +305,14 @@ const handleRevokeBatch = async () => {
                     <td className="px-4 py-2 whitespace-nowrap">{formatDate(a.blockTimestamp)}</td>
                     <td className="px-4 py-2 whitespace-nowrap">
                       <button className="px-3 py-1 bg-red-600 text-white rounded"
-                        onClick={() => handleRevokeSingle(a)}
+                        onClick={async () => {
+                          try {
+                            setStatus({ type: 'loading', message: `Revoking approval for ${formatAddress(a.spender)}...`});
+                            await handleRevokeSingle(a);
+                          } catch (e: any) {
+                            setStatus({ type: 'error', message: e?.shortMessage || 'Error revoking.' });
+                          }
+                        }}
                         disabled={status.type==='loading'}>
                         Revoke
                       </button>
@@ -315,21 +325,21 @@ const handleRevokeBatch = async () => {
             <div className="flex items-center gap-2">
               <button
                 className="px-5 py-2 bg-red-700 text-white rounded font-bold disabled:bg-gray-400"
-                onClick={handleRevokeBatch}
+                onClick={buttonState.action}
                 disabled={buttonState.disabled}
               >
                 {buttonState.text}
               </button>
-              {accountType === 'eoa' && userModuleAddress && userModuleAddress !== zeroAddress && (
-                 <span className="text-xs text-green-600">✓ Batch revoke enabled</span>
-              )}
+              {accountType === 'eoa' && userModuleAddress && userModuleAddress !== zeroAddress ? (
+   <span className="text-xs text-green-600">✓ Batch revoke enabled (sends sequential transactions)</span>
+) : null}
             </div>
           </>
         )}
       </div>
 
       <div className="text-xs text-gray-400 mt-6">
-        Tip: The "Revoke Selected" button sends a single batch transaction to save gas and time.
+        Tip: For Smart Accounts, "Revoke Selected" sends a single batch transaction. For EOAs, it sends one transaction per selected item.
       </div>
     </div>
   );
