@@ -1,7 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useAccount, useWriteContract } from 'wagmi';
+import { useAccount, useWriteContract, useReadContract, useWaitForTransactionReceipt } from 'wagmi';
 import { useSmartAccount } from '../hooks/useSmartAccount';
-import { encodeFunctionData, isAddress, getAddress, formatUnits } from 'viem';
+import { encodeFunctionData, isAddress, getAddress, formatUnits, zeroAddress } from 'viem';
+import {
+  revocationModuleFactoryAddress,
+  revocationModuleFactoryAbi,
+  revocationModuleAbi
+} from '../lib/contracts/contracts';
 
 // ERC20 ABI
 const erc20Abi = [
@@ -29,6 +34,7 @@ interface Approval {
   blockTimestamp?: string | null;
 }
 
+// Helper functions (remain the same)
 const formatAddress = (addr?: string | null) =>
   addr ? addr.slice(0, 6) + '...' + addr.slice(-4) : '-';
 
@@ -45,10 +51,11 @@ const formatDate = (timestamp?: string | null) => {
   return date.toLocaleString();
 };
 
+
 const RevokeERC20Page: React.FC = () => {
   const { address: eoaAddress } = useAccount();
   const { smartAccount, pimlicoClient, smartClient } = useSmartAccount();
-  const { writeContractAsync } = useWriteContract();
+  const { data: writeContractHash, writeContractAsync } = useWriteContract();
   const [accountType, setAccountType] = useState<'smart' | 'eoa'>('smart');
   const selectedAddress = accountType === 'smart' ? smartAccount?.address : eoaAddress;
 
@@ -57,7 +64,30 @@ const RevokeERC20Page: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState<{ type: 'idle'|'loading'|'success'|'error', message: string }>({ type: 'idle', message: '' });
 
-  // Fetch approvals
+  // HOOK TO CHECK IF EOA USER HAS A MODULE
+  const { data: userModuleAddress, isLoading: isCheckingModule, refetch: refetchModuleAddress } = useReadContract({
+    address: revocationModuleFactoryAddress,
+    abi: revocationModuleFactoryAbi,
+    functionName: 'getModule',
+    args: [eoaAddress ?? zeroAddress],
+    query: {
+      enabled: accountType === 'eoa' && !!eoaAddress,
+    }
+  });
+
+  // REFETCH MODULE ADDRESS AFTER A CREATION TRANSACTION IS CONFIRMED
+  const { isSuccess: isCreationSuccess } = useWaitForTransactionReceipt({
+    hash: writeContractHash
+  });
+
+  useEffect(() => {
+    if (isCreationSuccess) {
+      setStatus({ type: 'success', message: 'Module created successfully! You can now batch revoke.' });
+      refetchModuleAddress();
+    }
+  }, [isCreationSuccess, refetchModuleAddress]);
+  
+  // Fetch approvals logic
   useEffect(() => {
     if (!selectedAddress || !isAddress(selectedAddress)) {
       setApprovals([]);
@@ -95,8 +125,8 @@ const RevokeERC20Page: React.FC = () => {
     .catch(_e => setStatus({ type: 'error', message: 'Could not fetch approvals.' }))
     .finally(() => setIsLoading(false));
   }, [selectedAddress]);
-
-  // Revoke Logic
+  
+  // Single revoke logic
   const handleRevokeSingle = async (approval: Approval) => {
     setStatus({ type: 'loading', message: 'Preparing to revoke approval...' });
     const { tokenAddress, spender } = approval;
@@ -110,21 +140,7 @@ const RevokeERC20Page: React.FC = () => {
           setStatus({ type: 'error', message: 'Smart Account setup required.' });
           return;
         }
-        let fee;
-        let lastError;
-        for (let attempt = 1; attempt <= 3; attempt++) {
-          try {
-            fee = await pimlicoClient.getUserOperationGasPrice();
-            break;
-          } catch (e) {
-            lastError = e;
-            console.warn(`Gas price fetch attempt ${attempt} failed`, e);
-            await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
-          }
-        }
-        if (!fee) {
-          throw lastError || new Error('Failed to fetch gas prices after retries.');
-        }
+        const fee = await pimlicoClient.getUserOperationGasPrice();
         const opHash = await smartClient.sendUserOperation({
           calls: [{
             to: getAddress(tokenAddress),
@@ -155,14 +171,69 @@ const RevokeERC20Page: React.FC = () => {
     }
   };
 
-  // Batch Revoke
-  const handleRevokeBatch = async () => {
-    for (const id of checkedIds) {
-      const approval = approvals.find(a => a.id === id);
-      if (approval) await handleRevokeSingle(approval);
+  // REVISED: Batch Revoke to handle EOA module creation
+ // FINAL REVISION: Batch Revoke with correct EOA handling
+const handleRevokeBatch = async () => {
+  const approvalsToRevoke = approvals.filter(a => checkedIds.includes(a.id));
+  if (approvalsToRevoke.length === 0) return;
+
+  try {
+    if (accountType === 'smart') {
+      // Smart Account logic is correct and uses native batching.
+      setStatus({ type: 'loading', message: `Preparing to batch revoke ${approvalsToRevoke.length} approvals...` });
+      if (!smartAccount || !pimlicoClient || !smartClient) { throw new Error('Smart Account setup required.'); }
+      
+      const calls = approvalsToRevoke.map(approval => ({
+          to: getAddress(approval.tokenAddress),
+          data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [getAddress(approval.spender), 0n] }),
+          value: 0n,
+      }));
+      const fee = await pimlicoClient.getUserOperationGasPrice();
+      const opHash = await smartClient.sendUserOperation({ calls, maxFeePerGas: fee.fast.maxFee-per-gas, maxPriorityFeePerGas: fee.fast.max-priority-fee-per-gas });
+      
+      setStatus({ type: 'loading', message: 'Batch transaction sent, waiting for confirmation...' });
+      const { receipt } = await pimlicoClient.waitForUserOperationReceipt({ hash: opHash });
+      setStatus({ type: 'success', message: `Batch revoked! TX hash: ${receipt.transactionHash}` });
+    } else {
+      // EOA LOGIC: Revert to sequential transactions. This is the only way for EOAs.
+      setStatus({ type: 'loading', message: `Preparing to revoke ${approvalsToRevoke.length} approvals one by one...` });
+      
+      let successCount = 0;
+      for (const approval of approvalsToRevoke) {
+        try {
+          setStatus({ type: 'loading', message: `Revoking approval for ${formatAddress(approval.spender)}... (${successCount + 1}/${approvalsToRevoke.length})`});
+          // We can reuse the single revoke logic, which is correct.
+          await handleRevokeSingle(approval);
+          successCount++;
+        } catch (e: any) {
+          setStatus({ type: 'error', message: `Failed to revoke for ${formatAddress(approval.spender)}. Error: ${e.shortMessage}. Aborting.` });
+          return; // Stop on first failure
+        }
+      }
+      setStatus({ type: 'success', message: `Successfully revoked ${successCount} approvals.` });
     }
+  } catch (e: any) {
+    setStatus({ type: 'error', message: e?.shortMessage || 'An unexpected error occurred.' });
+  } finally {
     setCheckedIds([]);
+  }
+};
+
+  // DETERMINE BUTTON TEXT AND DISABLED STATE
+  const getButtonState = () => {
+    const isLoadingState = status.type === 'loading';
+    if (accountType === 'eoa') {
+      if (isCheckingModule) {
+        return { text: 'Checking Setup...', disabled: true };
+      }
+      if (!userModuleAddress || userModuleAddress === zeroAddress) {
+        return { text: 'One-Time Setup: Create Module', disabled: isLoadingState };
+      }
+    }
+    return { text: `Revoke Selected (${checkedIds.length})`, disabled: checkedIds.length === 0 || isLoadingState };
   };
+
+  const buttonState = getButtonState();
 
   return (
     <div className="max-w-5xl mx-auto mt-10 p-6 bg-white border rounded-lg shadow">
@@ -183,6 +254,7 @@ const RevokeERC20Page: React.FC = () => {
           {status.message}
         </div>
       )}
+      
       <div className="w-full overflow-x-auto">
         {isLoading ? (
           <div className="p-6 text-center text-gray-500 animate-pulse">Loading approval list...</div>
@@ -194,7 +266,7 @@ const RevokeERC20Page: React.FC = () => {
               <thead className="bg-gray-50 border-b">
                 <tr>
                   <th className="px-4 py-2"><input type="checkbox"
-                    checked={checkedIds.length===approvals.length}
+                    checked={approvals.length > 0 && checkedIds.length===approvals.length}
                     onChange={e => setCheckedIds(e.target.checked?approvals.map(a=>a.id):[])} /></th>
                   <th className="px-4 py-2">Asset</th>
                   <th className="px-4 py-2">Type</th>
@@ -239,19 +311,25 @@ const RevokeERC20Page: React.FC = () => {
                 ))}
               </tbody>
             </table>
+
             <div className="flex items-center gap-2">
-              <button className="px-5 py-2 bg-red-700 text-white rounded font-bold"
+              <button
+                className="px-5 py-2 bg-red-700 text-white rounded font-bold disabled:bg-gray-400"
                 onClick={handleRevokeBatch}
-                disabled={checkedIds.length === 0 || status.type==='loading'}>
-                Revoke Selected
+                disabled={buttonState.disabled}
+              >
+                {buttonState.text}
               </button>
-              <span className="text-xs text-gray-400">{checkedIds.length} selected</span>
+              {accountType === 'eoa' && userModuleAddress && userModuleAddress !== zeroAddress && (
+                 <span className="text-xs text-green-600">✓ Batch revoke enabled</span>
+              )}
             </div>
           </>
         )}
       </div>
+
       <div className="text-xs text-gray-400 mt-6">
-        Tip: Sort, filter, or search by spender just like revoke.cash. Batch revoke will send individual transactions.
+        Tip: The "Revoke Selected" button sends a single batch transaction to save gas and time.
       </div>
     </div>
   );

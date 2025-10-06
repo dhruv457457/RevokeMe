@@ -1,5 +1,6 @@
 // ../lib/contracts/contracts.ts
-export const revocationModuleAddress = '0x2E1D1a8bFeD98bdc46D5846b1815333E3EB42Eaa' as `0x${string}`;
+export const revocationModuleAddress = '0x48C801c7a52DfD092686ba97781E198A80dEa566' as `0x${string}`;
+export const revocationModuleFactoryAddress = '0x3833502FF256aa1D9B19Aea5a62Aa86B4283Ce75' as `0x${string}`;
 
 export const revocationModuleAbi = [
   {
@@ -141,3 +142,57 @@ export const revocationModuleAbi = [
   },
   { stateMutability: 'payable', type: 'receive' },
 ];
+
+export const revocationModuleFactoryAbi=[
+	{
+		"inputs": [],
+		"name": "createModule",
+		"outputs": [
+			{
+				"internalType": "address",
+				"name": "moduleAddress",
+				"type": "address"
+			}
+		],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "user",
+				"type": "address"
+			},
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "moduleAddress",
+				"type": "address"
+			}
+		],
+		"name": "ModuleCreated",
+		"type": "event"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "",
+				"type": "address"
+			}
+		],
+		"name": "getModule",
+		"outputs": [
+			{
+				"internalType": "address",
+				"name": "",
+				"type": "address"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	}
+]
