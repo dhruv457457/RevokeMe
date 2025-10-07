@@ -61,14 +61,7 @@ const SmartAccountDetails: React.FC = () => {
             <div className="mt-4">
                 <p className="text-xs text-gray-500">Balance</p>
                 <p className="text-2xl font-bold text-white">{parseFloat(balance).toFixed(4)} MONAD</p>
-                <a 
-                    href="https://faucet.monad.tools/" 
-                    target="_blank" 
-                    rel="noopener noreferrer" 
-                    className="text-xs text-purple-400 hover:text-purple-300 transition-colors"
-                >
-                    Monad Faucet &rarr;
-                </a>
+              
             </div>
         </div>
     );

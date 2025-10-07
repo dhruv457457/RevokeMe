@@ -159,17 +159,18 @@ const ManualRevokePanel: React.FC = () => {
             <div className="flex-shrink-0">
                 <h2 className="text-xl font-bold mb-4 text-gray-200">Manual Approval Management</h2>
                 <div className="flex flex-wrap gap-2 items-center mb-4 border-b border-gray-700 pb-4">
-                    <button 
-                      onClick={() => setAccountType('smart')} 
-                      className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${accountType === 'smart' ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}
-                    >
-                        Smart Account
-                    </button>
+                  
                     <button 
                       onClick={() => setAccountType('eoa')} 
                       className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${accountType === 'eoa' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}
                     >
                         Main Account (EOA)
+                    </button>
+                      <button 
+                      onClick={() => setAccountType('smart')} 
+                      className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${accountType === 'smart' ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}
+                    >
+                        Smart Account
                     </button>
                     <span className="text-sm text-gray-400 ml-auto">Viewing: <span className="font-mono bg-gray-800 p-1 rounded-md text-gray-300">{selectedAddress ? formatAddress(selectedAddress) : '...'}</span></span>
                 </div>

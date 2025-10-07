@@ -5,21 +5,12 @@ import ApprovalList from "../components/ApprovalList";
 import HeroSection from "../components/HeroSection";
 import InteractiveFeatures from "../components/InteractiveFeatures";
 import CTABanner from "../components/CTABanner";
+import { Link } from "react-router-dom";
 
 const Home: React.FC = () => {
-  const { address: eoaAddress, isConnected } = useAccount();
+  const { address: eoaAddress} = useAccount();
   const { smartAccount } = useSmartAccount();
 
-  if (!isConnected) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-10rem)] bg-black text-white">
-        <h1 className="text-3xl font-bold">Welcome to AutoRevoke</h1>
-        <p className="mt-4 text-lg text-gray-400">
-          Please connect your wallet to view and manage your token approvals.
-        </p>
-      </div>
-    );
-  }
 
   return (
     <div className="w-full text-white min-h-screen">
@@ -48,7 +39,7 @@ const Home: React.FC = () => {
               </div>
               <div className="dashboard-card-content">
                 {smartAccount?.address ? (
-                  <ApprovalList ownerAddress={smartAccount.address} />
+                  <ApprovalList ownerAddress={smartAccount.address} limit={5} />
                 ) : (
                   <div className="flex items-center justify-center h-full">
                     <p className="text-gray-500">
@@ -56,6 +47,11 @@ const Home: React.FC = () => {
                     </p>
                   </div>
                 )}
+              </div>
+              <div className="dashboard-card-footer">
+                <Link to="/revoke-erc20" className="view-more-button">
+                  View More
+                </Link>
               </div>
             </div>
 
@@ -73,7 +69,7 @@ const Home: React.FC = () => {
               </div>
               <div className="dashboard-card-content">
                 {eoaAddress ? (
-                  <ApprovalList ownerAddress={eoaAddress} />
+                  <ApprovalList ownerAddress={eoaAddress} limit={5} />
                 ) : (
                    <div className="flex items-center justify-center h-full">
                     <p className="text-gray-500">
@@ -81,6 +77,11 @@ const Home: React.FC = () => {
                     </p>
                   </div>
                 )}
+              </div>
+               <div className="dashboard-card-footer">
+                <Link to="/revoke-erc20" className="view-more-button">
+                  View More 
+                </Link>
               </div>
             </div>
           </div>
