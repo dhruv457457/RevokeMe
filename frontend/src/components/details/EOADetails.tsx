@@ -1,7 +1,8 @@
 // components/details/EOADetails.tsx
-import React, { useState} from 'react';
+import React, { useState } from 'react';
 import { useAccount, useBalance } from 'wagmi';
 import { formatEther } from 'viem';
+import { motion } from 'framer-motion';
 
 // A simple copy-to-clipboard utility hook
 const useCopyToClipboard = () => {
@@ -14,6 +15,28 @@ const useCopyToClipboard = () => {
     };
     return { copied, copy };
 };
+
+// New Animated Character Component
+const EOACharacter = () => (
+    <motion.div 
+        className="flex-shrink-0 w-24 h-24 flex items-center justify-center"
+        whileHover={{ scale: 1.1, rotate: 2 }}
+        animate={{ y: [-3, 3, -3] }}
+        transition={{ 
+            y: { duration: 2, repeat: Infinity, ease: "easeInOut" },
+            scale: { type: "spring", stiffness: 300 },
+            rotate: { type: "spring", stiffness: 300 }
+        }}
+    >
+        <div className="relative">
+            <div className="w-16 h-16 bg-blue-400 rounded-full shadow-lg"></div>
+            <div className="absolute top-10 left-1/2 -translate-x-1/2 w-20 h-12 bg-gray-700 rounded-t-full border-4 border-gray-800"></div>
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 w-8 h-4 bg-gray-800 rounded-full"></div>
+             <div className="absolute top-5 left-1/2 -translate-x-1/2 w-2 h-1 bg-white rounded-full opacity-70"></div>
+        </div>
+    </motion.div>
+);
+
 
 const EOADetails: React.FC = () => {
     const { address, isConnected } = useAccount();
@@ -31,8 +54,9 @@ const EOADetails: React.FC = () => {
     const balance = balanceData ? formatEther(balanceData.value) : '0';
 
     return (
-        <div className="border border-[#333336] bg-[#0C0C0E] rounded-3xl p-4 h-full flex flex-col justify-between">
-            <div>
+        <div className="border border-[#333336] bg-[#0C0C0E] rounded-3xl p-4 h-full flex items-center justify-between overflow-hidden">
+            {/* Left Side: Details */}
+            <div className="flex-grow">
                 <h3 className="text-sm font-semibold text-blue-400">Connected Wallet (EOA)</h3>
                 <div className="mt-2 flex items-center gap-2">
                     <p className="text-lg font-mono text-gray-200 truncate" title={address}>
@@ -46,11 +70,13 @@ const EOADetails: React.FC = () => {
                         )}
                     </button>
                 </div>
+                 <div className="mt-4">
+                    <p className="text-xs text-gray-500">Balance</p>
+                    <p className="text-2xl font-bold text-white">{parseFloat(balance).toFixed(4)} MONAD</p>
+                </div>
             </div>
-            <div className="mt-4">
-                <p className="text-xs text-gray-500">Balance</p>
-                <p className="text-2xl font-bold text-white">{parseFloat(balance).toFixed(4)} MONAD</p>
-            </div>
+            {/* Right Side: Character */}
+            <EOACharacter />
         </div>
     );
 };

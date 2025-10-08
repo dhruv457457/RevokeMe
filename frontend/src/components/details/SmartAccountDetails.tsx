@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSmartAccount } from '../../hooks/useSmartAccount';
 import { formatEther } from 'viem';
+import { motion } from 'framer-motion';
 
 // A simple copy-to-clipboard utility hook
 const useCopyToClipboard = () => {
@@ -14,6 +15,32 @@ const useCopyToClipboard = () => {
     };
     return { copied, copy };
 };
+
+// New Animated Character Component
+const SmartAccountCharacter = () => (
+    <motion.div 
+        className="flex-shrink-0 w-24 h-24 flex items-center justify-center"
+        whileHover={{ scale: 1.1 }}
+    >
+        <motion.div 
+            className="relative"
+            animate={{ rotate: 360 }}
+            transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
+        >
+            <div className="w-16 h-16 bg-purple-500 rounded-md shadow-lg transform rotate-45"></div>
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 bg-gray-900 rounded-full flex items-center justify-center">
+                 <motion.div 
+                    className="w-4 h-4 bg-purple-300 rounded-full"
+                    animate={{ scale: [1, 1.2, 1], opacity: [0.7, 1, 0.7] }}
+                    transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+                ></motion.div>
+            </div>
+            <div className="absolute -top-1 -right-1 w-4 h-4 bg-purple-300 rounded-full border-2 border-gray-900"></div>
+             <div className="absolute -bottom-1 -left-1 w-4 h-4 bg-purple-300 rounded-full border-2 border-gray-900"></div>
+        </motion.div>
+    </motion.div>
+);
+
 
 const SmartAccountDetails: React.FC = () => {
     const { smartAccount, publicClient, isReady, isSettingUp } = useSmartAccount();
@@ -39,9 +66,10 @@ const SmartAccountDetails: React.FC = () => {
     const address = smartAccount?.address;
 
     return (
-        <div className="border border-[#333336] bg-[#0C0C0E] rounded-3xl p-4 h-full flex flex-col justify-between">
-            <div>
-                <h3 className="text-sm font-semibold text-purple-400">Delegation Wallet (Smart Account)</h3>
+        <div className="border border-[#333336] bg-[#0C0C0E] rounded-3xl p-4 h-full flex items-center justify-between overflow-hidden">
+            {/* Left Side: Details */}
+            <div className="flex-grow">
+                 <h3 className="text-sm font-semibold text-purple-400">Delegation Wallet (Smart Account)</h3>
                 {isSettingUp && <p className="text-gray-400 text-xs mt-2 animate-pulse">Initializing...</p>}
                 {isReady && address && (
                     <div className="mt-2 flex items-center gap-2">
@@ -57,12 +85,13 @@ const SmartAccountDetails: React.FC = () => {
                         </button>
                     </div>
                 )}
+                 <div className="mt-4">
+                    <p className="text-xs text-gray-500">Balance</p>
+                    <p className="text-2xl font-bold text-white">{parseFloat(balance).toFixed(4)} MONAD</p>
+                </div>
             </div>
-            <div className="mt-4">
-                <p className="text-xs text-gray-500">Balance</p>
-                <p className="text-2xl font-bold text-white">{parseFloat(balance).toFixed(4)} MONAD</p>
-              
-            </div>
+             {/* Right Side: Character */}
+            <SmartAccountCharacter />
         </div>
     );
 };
