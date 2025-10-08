@@ -4,32 +4,21 @@ import { motion } from 'framer-motion';
 // --- Visual Components for Bento Grid Items with Hover Animations ---
 
 const MetaMaskVisual = () => (
-    <motion.div 
+     <motion.div 
         className="w-full h-full rounded-lg flex items-center justify-center p-4 overflow-hidden"
         initial="initial"
         whileHover="hover"
     >
-        <div className="relative w-24 h-24">
-            <motion.div 
-                className="absolute inset-0 border-4 border-purple-500 rounded-full"
-                variants={{
-                    initial: { scale: 1, opacity: 0.7 },
-                    hover: { scale: 1.1, opacity: 1, transition: { duration: 0.5, repeat: Infinity, repeatType: "reverse" } }
-                }}
-            />
-            <motion.div 
-                className="absolute inset-2 border-4 border-blue-500 rounded-full"
-                 variants={{
-                    initial: { scale: 1, opacity: 0.7 },
-                    hover: { scale: 0.9, opacity: 1, transition: { duration: 0.5, repeat: Infinity, repeatType: "reverse" } }
-                }}
-            />
-            <div className="absolute inset-4 bg-white/10 rounded-full flex items-center justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 11c0 3.517-1.009 6.789-2.75 9.566-1.74 2.777-2.5 5.434-2.5 5.434H12M12 11c0-3.517 1.009-6.789 2.75-9.566 1.74-2.777 2.5-5.434 2.5-5.434H12M12 11v11" />
-                </svg>
-            </div>
-        </div>
+        <motion.img
+            src="https://support.metamask.io/img/favicons/favicon-96x96.png"
+            alt="MetaMask logo"
+            className="h-30 w-auto object-contain"
+            variants={{
+                initial: { scale: 1 },
+                hover: { scale: 1.1 }
+            }}
+            transition={{ type: "spring", stiffness: 300 }}
+        />
     </motion.div>
 );
 const MonadVisual = () => (
@@ -39,24 +28,9 @@ const MonadVisual = () => (
         whileHover="hover"
     >
         <div className="relative w-full h-full flex items-center justify-center">
-            <div className="absolute h-full w-px bg-green-500/20" />
-            <div className="absolute w-full h-px bg-green-500/20" />
-            {[...Array(5)].map((_, i) => (
-                <motion.div 
-                    key={i}
-                    className="absolute w-2 h-2 bg-green-500 rounded-full"
-                    variants={{
-                        initial: { scale: 1, opacity: 0 },
-                        hover: { scale: 1.5, opacity: 1 }
-                    }}
-                    transition={{ 
-                        duration: 2, 
-                        repeat: Infinity, 
-                        delay: i * 0.4, 
-                        ease: "easeInOut" 
-                    }}
-                />
-            ))}
+            <svg className="w-40 h-40" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path fill="#836EF9" d="M12 3c-2.599 0-9 6.4-9 9s6.401 9 9 9s9-6.401 9-9s-6.401-9-9-9m-1.402 14.146c-1.097-.298-4.043-5.453-3.744-6.549s5.453-4.042 6.549-3.743c1.095.298 4.042 5.453 3.743 6.549c-.298 1.095-5.453 4.042-6.549 3.743"/>
+            </svg>
         </div>
         <p className="font-mono text-green-400 text-sm mt-2">10,000 TPS</p>
     </motion.div>
@@ -64,20 +38,22 @@ const MonadVisual = () => (
 
 const EnvioVisual = () => (
     <motion.div 
-        className="w-full h-full rounded-lg flex flex-col p-4 justify-between"
+        className="w-full h-full rounded-lg flex items-center justify-center p-4 overflow-hidden"
         initial="initial"
         whileHover="hover"
     >
-        <div className="font-mono text-xs text-gray-500">&lt;GraphQL Query /&gt;</div>
-        <div className="space-y-2">
-            <motion.div variants={{ initial: { width: '75%' }, hover: { width: '90%' } }} className="h-3 bg-purple-500/30 rounded-full" />
-            <motion.div variants={{ initial: { width: '50%' }, hover: { width: '70%' } }} className="h-3 bg-purple-500/30 rounded-full" />
-            <motion.div variants={{ initial: { width: '66%' }, hover: { width: '80%' } }} className="h-3 bg-purple-500/30 rounded-full" />
-        </div>
-        <div className="font-mono text-xs text-purple-400 self-end">=&gt; Real-time API</div>
+        <motion.img
+            src="https://docs.envio.dev/img/envio-logo.png"
+            alt="Envio Logo"
+            className="h-20 w-auto object-contain"
+            variants={{
+                initial: { scale: 1 },
+                hover: { scale: 1.1 }
+            }}
+            transition={{ type: "spring", stiffness: 300 }}
+        />
     </motion.div>
 );
-
 const MonitoringVisual = () => (
     <div className="w-full h-full  rounded-lg flex items-center justify-center p-4">
         <div className="w-28 h-28 border-4 border-blue-400 rounded-full flex items-center justify-center relative">

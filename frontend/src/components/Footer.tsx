@@ -43,7 +43,7 @@ const EnvioIcon = () => (
 
 const Footer: React.FC = () => {
   return (
-    <footer className="bg-[#0C0C0E] text-white p-10">
+    <footer className=" text-white p-10">
       <div className="max-w-7xl mx-auto px-8 border border-[#333336] rounded-3xl">
 
         {/* Top Row */}

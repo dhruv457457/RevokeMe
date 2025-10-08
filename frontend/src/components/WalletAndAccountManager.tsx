@@ -81,7 +81,7 @@ export const WalletAndAccountManager: React.FC = () => {
         return (
             <button
                 onClick={() => connect({ connector: injected() })}
-                className="bg-[#7f4de] text-white hover:bg-[#7437DC] cursor-pointer px-4 py-2 rounded-md text-sm font-semibold transition-colors"
+                className=" text-white bg-[#7f48de] hover:bg-[#7437DC] cursor-pointer px-4 py-2 rounded-md text-sm font-semibold transition-colors"
             >
                 Connect Wallet
             </button>
