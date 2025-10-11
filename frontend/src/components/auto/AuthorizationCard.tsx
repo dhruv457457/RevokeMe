@@ -13,21 +13,16 @@ const AuthorizationCard: React.FC<Props> = ({ grant, onAuthorize, onRevoke }) =>
   const isActive = !!grant;
 
   return (
-    <div className={`p-6 rounded-xl border flex items-center justify-between transition-all duration-300 ${isActive ? 'bg-green-900/50 border-green-700' : 'bg-gray-800 border-gray-700'}`}>
-      <div>
-        <h3 className={`font-bold text-lg ${isActive ? 'text-green-300' : 'text-gray-300'}`}>
-          Service Status: {isActive ? 'ONLINE' : 'OFFLINE'}
-        </h3>
-        <p className={`text-sm mt-1 ${isActive ? 'text-green-400' : 'text-gray-400'}`}>
-          {isActive
-            ? `System is actively monitoring for new approvals.`
-            : 'Authorize to begin monitoring.'
-          }
-        </p>
-      </div>
+    <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
+            <span className={`h-3 w-3 rounded-full ${isActive ? 'bg-green-500' : 'bg-gray-600'}`}></span>
+            <span className={`text-sm font-medium ${isActive ? 'text-green-400' : 'text-gray-400'}`}>
+                {isActive ? 'Service Online' : 'Service Offline'}
+            </span>
+        </div>
       <button
         onClick={isActive ? onRevoke : onAuthorize}
-        className={`w-36 px-4 py-2 font-bold rounded-lg text-white transition-all duration-300 transform hover:scale-105 ${isActive ? 'bg-red-600 hover:bg-red-700 shadow-lg' : 'bg-purple-600 hover:bg-purple-700 shadow-lg'}`}
+        className={`w-32 px-4 py-2 text-sm font-bold rounded-lg text-white transition-all duration-300 cursor-pointer transform ${isActive ? 'bg-red-600 hover:bg-red-700' : 'bg-purple-600 hover:bg-purple-700'}`}
       >
         {isActive ? 'Shutdown' : 'Authorize'}
       </button>

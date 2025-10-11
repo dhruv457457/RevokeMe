@@ -1,3 +1,4 @@
+// src/components/manual/ManualRevokePanel.tsx
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAccount, useWriteContract, useReadContract, useWaitForTransactionReceipt } from 'wagmi';
 import { useSmartAccount } from '../../hooks/useSmartAccount';
@@ -28,7 +29,7 @@ const ManualRevokePanel: React.FC = () => {
     const { data: writeContractHash, writeContractAsync } = useWriteContract();
 
     // Core State
-    const [accountType, setAccountType] = useState<'smart' | 'eoa'>('smart');
+    const [accountType, setAccountType] = useState<'smart' | 'eoa'>('eoa');
     const selectedAddress = accountType === 'smart' ? smartAccount?.address : eoaAddress;
     const [approvals, setApprovals] = useState<Approval[]>([]);
     const [checkedIds, setCheckedIds] = useState<string[]>([]);
@@ -248,20 +249,23 @@ const ManualRevokePanel: React.FC = () => {
         <div className="border border-[#333336] bg-[#0C0C0E] rounded-3xl shadow-lg p-6 h-full flex flex-col">
             {/* Header Section */}
             <div className="flex-shrink-0">
-                <h2 className="text-xl font-bold mb-4 text-gray-200">Manual Approval Management</h2>
-                <div className="flex flex-col md:flex-row gap-4 items-center mb-4 border-b border-gray-700 pb-4">
-                  
+                <div className="flex flex-col md:flex-row justify-between md:items-center mb-4">
+                    <h2 className="text-xl font-bold text-gray-200">Manual Approval Management</h2>
                     {/* Account Type Buttons */}
-                    <div className="flex gap-2">
-                        <button onClick={() => setAccountType('eoa')} className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${accountType === 'eoa' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>Main Account (EOA)</button>
-                        <button onClick={() => setAccountType('smart')} className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${accountType === 'smart' ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>Smart Account</button>
+                     <div className="flex items-center gap-2 p-1 bg-gray-800 rounded-lg mt-4 md:mt-0">
+                        <button onClick={() => setAccountType('eoa')} className={`w-full md:w-auto px-3 py-1.5 rounded-md text-sm font-semibold transition-colors ${accountType === 'eoa' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-700'}`}>Main Account (EOA)</button>
+                        <button onClick={() => setAccountType('smart')} className={`w-full md:w-auto px-3 py-1.5 rounded-md text-sm font-semibold transition-colors ${accountType === 'smart' ? 'bg-purple-600 text-white' : ' text-gray-400 hover:bg-gray-700'}`}>Smart Account</button>
                     </div>
+                </div>
 
+                {/* Controls Section */}
+                <div className="flex flex-col md:flex-row gap-4 items-center mb-4 border-b border-gray-700 pb-4">
                     {/* Sort and Filter Buttons */}
-                    <div className="flex gap-2 ml-0 md:ml-auto">
+                    <div className="flex gap-2 w-full md:w-auto">
                         <div className="relative" ref={filterRef}>
-                            <button onClick={() => setIsFilterOpen(!isFilterOpen)} className="flex items-center gap-2 px-3 py-2 text-sm bg-gray-800 rounded-md text-gray-300 hover:bg-gray-700">
-                                Filters <span className="text-xs bg-gray-600 px-1.5 py-0.5 rounded-full">{activeFilters.amount.length + activeFilters.type.length}</span> <ChevronDownIcon/>
+                            <button onClick={() => setIsFilterOpen(!isFilterOpen)} className="w-full flex items-center justify-between gap-2 px-3 py-2 text-sm bg-gray-800 rounded-md text-gray-300 hover:bg-gray-700">
+                                <span>Filters</span>
+                                <span className="text-xs bg-gray-600 px-1.5 py-0.5 rounded-full">{activeFilters.amount.length + activeFilters.type.length}</span>
                             </button>
                             {isFilterOpen && (
                                 <div className="absolute top-full mt-2 w-60 bg-[#1A1A1D] border border-[#333336] rounded-lg shadow-xl z-20 p-4 text-gray-300 text-sm">
@@ -276,7 +280,7 @@ const ManualRevokePanel: React.FC = () => {
                             )}
                         </div>
                         <div className="relative" ref={sortRef}>
-                             <button onClick={() => setIsSortOpen(!isSortOpen)} className="flex items-center gap-2 px-3 py-2 text-sm bg-gray-800 rounded-md text-gray-300 hover:bg-gray-700">Sort <ChevronDownIcon/></button>
+                             <button onClick={() => setIsSortOpen(!isSortOpen)} className="w-full flex items-center justify-between gap-2 px-3 py-2 text-sm bg-gray-800 rounded-md text-gray-300 hover:bg-gray-700"><span>Sort</span> <ChevronDownIcon/></button>
                              {isSortOpen && (
                                 <div className="absolute top-full mt-2 w-64 bg-[#1A1A1D] border border-[#333336] rounded-lg shadow-xl z-20 text-gray-300 text-sm">
                                     {sortOptions.map(opt => (
@@ -305,10 +309,10 @@ const ManualRevokePanel: React.FC = () => {
                 )}
             </div>
 
-            <div className="flex-shrink-0 pt-4">
+            <div className="flex-shrink-0 pt-4 border-t border-gray-700 mt-4">
                 {approvals.length > 0 && !isLoading && (
                      <div className="flex items-center justify-between gap-4">
-                        <button onClick={buttonState.action} disabled={buttonState.disabled} className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md font-bold disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors flex items-center justify-center">
+                        <button onClick={buttonState.action} disabled={buttonState.disabled} className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-bold disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors flex items-center justify-center min-w-[180px]">
                             {status.type === 'loading' && buttonState.text !== 'Checking Setup...' ? <IconSpinner /> : buttonState.text}
                         </button>
                         {accountType === 'eoa' && userModuleAddress && userModuleAddress !== zeroAddress ? (

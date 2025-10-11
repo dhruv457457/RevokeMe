@@ -1,3 +1,4 @@
+// src/components/manual/ApprovalsTable.tsx
 import React from 'react';
 import { type Approval } from '../../utils/fetchApprovals';
 import { formatUnits } from 'viem';
@@ -22,7 +23,10 @@ const formatDate = (timestamp?: string | null) => {
   const asNum = Number(timestamp);
   if (!asNum || isNaN(asNum)) return '-';
   const date = new Date(asNum * 1000);
-  return date.toLocaleString();
+  // More readable date format
+  return date.toLocaleDateString(undefined, {
+    year: 'numeric', month: 'short', day: 'numeric',
+  });
 };
 
 
@@ -37,8 +41,12 @@ interface Props {
 
 const ApprovalsTable: React.FC<Props> = ({ approvals, checkedIds, onCheckedIdsChange, onRevokeSingle, setStatus, isLoading }) => {
     if (approvals.length === 0) {
-        // STYLING FIX: Updated text color for dark theme
-        return <div className="p-5 text-center text-gray-400">No active approvals found.</div>;
+        return (
+            <div className="p-10 text-center text-gray-500 bg-gray-900/50 rounded-lg">
+                <h3 className="font-semibold text-gray-300">No Active Approvals</h3>
+                <p className="text-sm mt-1">There are no active token approvals for this account.</p>
+            </div>
+        );
     }
 
     const handleCheckAll = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -61,54 +69,46 @@ const ApprovalsTable: React.FC<Props> = ({ approvals, checkedIds, onCheckedIdsCh
 
     return (
         <div className="w-full overflow-x-auto">
-            {/* STYLING FIX: Fully updated table for dark theme */}
-            <table className="min-w-full text-sm text-gray-300">
-                <thead className="bg-gray-800">
+            <table className="min-w-full text-sm text-left text-gray-400">
+                <thead className="bg-gray-800 text-xs text-gray-400 uppercase tracking-wider">
                     <tr>
-                        <th className="px-4 py-3 text-left">
+                        <th scope="col" className="px-4 py-3">
                             <input 
                                 type="checkbox" 
-                                className="accent-purple-500 bg-gray-700 border-gray-600 rounded" 
+                                className="accent-purple-500 bg-gray-700 border-gray-600 rounded focus:ring-purple-600" 
                                 checked={approvals.length > 0 && checkedIds.length === approvals.length} 
                                 onChange={handleCheckAll} 
                                 disabled={isLoading} 
                             />
                         </th>
-                        <th className="px-4 py-3 text-left font-semibold">Asset</th>
-                        <th className="px-4 py-3 text-left font-semibold">Type</th>
-                        <th className="px-4 py-3 text-left font-semibold">Approved Amount</th>
-                        <th className="px-4 py-3 text-left font-semibold">Value at Risk</th>
-                        <th className="px-4 py-3 text-left font-semibold">Approved Spender</th>
-                        <th className="px-4 py-3 text-left font-semibold">Owner Address</th>
-                        <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Last Updated</th>
-                        <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">Actions</th>
+                        <th scope="col" className="px-4 py-3">Asset</th>
+                        <th scope="col" className="px-4 py-3">Amount</th>
+                        <th scope="col" className="px-4 py-3">Spender</th>
+                        <th scope="col" className="px-4 py-3">Owner</th>
+                        <th scope="col" className="px-4 py-3">Last Updated</th>
+                        <th scope="col" className="px-4 py-3 text-center">Action</th>
                     </tr>
                 </thead>
                 <tbody>
                     {approvals.map((a) => (
-                        <tr key={a.id} className="border-b border-gray-700 hover:bg-gray-800">
-                            <td className="px-4 py-2">
+                        <tr key={a.id} className="border-b border-gray-800 hover:bg-gray-800/50">
+                            <td className="px-4 py-4">
                                 <input 
                                     type="checkbox" 
-                                    className="accent-purple-500 bg-gray-700 border-gray-600 rounded" 
+                                    className="accent-purple-500 bg-gray-700 border-gray-600 rounded focus:ring-purple-600"
                                     checked={checkedIds.includes(a.id)} 
                                     onChange={e => handleCheckSingle(e, a.id)} 
                                     disabled={isLoading} 
                                 />
                             </td>
-                            <td className="px-4 py-2 font-mono" title={a.tokenAddress}>{formatAddress(a.tokenAddress)}</td>
-                            <td className="px-4 py-2">Token</td>
-                            <td className="px-4 py-2">{formatAmount(a.amount)}</td>
-                            <td className="px-4 py-2">Unknown</td>
-                            <td className="px-4 py-2 font-mono" title={a.spender}>{formatAddress(a.spender)}</td>
-                            
-                            {/* TS FIX: Changed title={a.owner} to title={a.owner ?? ''} */}
-                            <td className="px-4 py-2 font-mono" title={a.owner ?? ''}>{formatAddress(a.owner)}</td>
-                            
-                            <td className="px-4 py-2 whitespace-nowrap">{formatDate(a.blockTimestamp)}</td>
-                            <td className="px-4 py-2">
+                            <td className="px-4 py-4 font-mono text-gray-300" title={a.tokenAddress}>{formatAddress(a.tokenAddress)}</td>
+                            <td className="px-4 py-4 font-semibold text-white">{formatAmount(a.amount)}</td>
+                            <td className="px-4 py-4 font-mono" title={a.spender}>{formatAddress(a.spender)}</td>
+                            <td className="px-4 py-4 font-mono" title={a.owner ?? ''}>{formatAddress(a.owner)}</td>
+                            <td className="px-4 py-4 whitespace-nowrap">{formatDate(a.blockTimestamp)}</td>
+                            <td className="px-4 py-4 text-center">
                                 <button 
-                                    className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded-3xl cursor-pointer disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors" 
+                                    className="px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-full cursor-pointer disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors" 
                                     onClick={() => handleRevokeClick(a)} 
                                     disabled={isLoading}
                                 >
