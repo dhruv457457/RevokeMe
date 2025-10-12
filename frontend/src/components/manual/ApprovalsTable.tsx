@@ -69,8 +69,8 @@ const ApprovalsTable: React.FC<Props> = ({ approvals, checkedIds, onCheckedIdsCh
 
     return (
         <div className="w-full overflow-x-auto">
-            <table className="min-w-full text-sm text-left text-gray-400">
-                <thead className="bg-gray-800 text-xs text-gray-400 uppercase tracking-wider">
+            <table className="min-w-full text-sm text-left text-gray-400 rounded-2xl">
+                <thead className="bg-[#1A1A1D] text-xs text-gray-400 uppercase tracking-wider">
                     <tr>
                         <th scope="col" className="px-4 py-3">
                             <input 
@@ -91,7 +91,7 @@ const ApprovalsTable: React.FC<Props> = ({ approvals, checkedIds, onCheckedIdsCh
                 </thead>
                 <tbody>
                     {approvals.map((a) => (
-                        <tr key={a.id} className="border-b border-gray-800 hover:bg-gray-800/50">
+                        <tr key={a.id} className="border-b border-gray-800 hover:bg-gray-800/20">
                             <td className="px-4 py-4">
                                 <input 
                                     type="checkbox" 
@@ -108,7 +108,7 @@ const ApprovalsTable: React.FC<Props> = ({ approvals, checkedIds, onCheckedIdsCh
                             <td className="px-4 py-4 whitespace-nowrap">{formatDate(a.blockTimestamp)}</td>
                             <td className="px-4 py-4 text-center">
                                 <button 
-                                    className="px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-full cursor-pointer disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors" 
+                                    className="px-4 py-1.5 border border-gray-600 text-white hover:text-red-400 font-semibold rounded-3xl cursor-pointer disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors" 
                                     onClick={() => handleRevokeClick(a)} 
                                     disabled={isLoading}
                                 >

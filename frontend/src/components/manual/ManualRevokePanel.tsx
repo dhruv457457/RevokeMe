@@ -252,7 +252,7 @@ const ManualRevokePanel: React.FC = () => {
                 <div className="flex flex-col md:flex-row justify-between md:items-center mb-4">
                     <h2 className="text-xl font-bold text-gray-200">Manual Approval Management</h2>
                     {/* Account Type Buttons */}
-                     <div className="flex items-center gap-2 p-1 bg-gray-800 rounded-lg mt-4 md:mt-0">
+                     <div className="flex items-center gap-2 p-1 bg-[#1A1A1D]  rounded-lg mt-4 md:mt-0">
                         <button onClick={() => setAccountType('eoa')} className={`w-full md:w-auto px-3 py-1.5 rounded-md text-sm font-semibold transition-colors ${accountType === 'eoa' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-700'}`}>Main Account (EOA)</button>
                         <button onClick={() => setAccountType('smart')} className={`w-full md:w-auto px-3 py-1.5 rounded-md text-sm font-semibold transition-colors ${accountType === 'smart' ? 'bg-purple-600 text-white' : ' text-gray-400 hover:bg-gray-700'}`}>Smart Account</button>
                     </div>
@@ -263,12 +263,12 @@ const ManualRevokePanel: React.FC = () => {
                     {/* Sort and Filter Buttons */}
                     <div className="flex gap-2 w-full md:w-auto">
                         <div className="relative" ref={filterRef}>
-                            <button onClick={() => setIsFilterOpen(!isFilterOpen)} className="w-full flex items-center justify-between gap-2 px-3 py-2 text-sm bg-gray-800 rounded-md text-gray-300 hover:bg-gray-700">
+                            <button onClick={() => setIsFilterOpen(!isFilterOpen)} className="w-full flex items-center justify-between gap-2 px-3 py-2 text-sm bg-[#1A1A1D] border border-[#333336] rounded-md text-gray-300 ">
                                 <span>Filters</span>
                                 <span className="text-xs bg-gray-600 px-1.5 py-0.5 rounded-full">{activeFilters.amount.length + activeFilters.type.length}</span>
                             </button>
                             {isFilterOpen && (
-                                <div className="absolute top-full mt-2 w-60 bg-[#1A1A1D] border border-[#333336] rounded-lg shadow-xl z-20 p-4 text-gray-300 text-sm">
+                                <div className="absolute top-full mt-2 w-60 bg-[#0C0C0E] border border-[#333336] rounded-lg shadow-xl z-20 p-4 text-gray-300 text-sm">
                                     <h5 className="font-bold text-gray-400 text-xs uppercase tracking-wider mb-2">Asset Type</h5>
                                     <label className="flex items-center gap-2 mb-3"><input type="checkbox" className="accent-purple-500" checked={activeFilters.type.includes('token')} onChange={() => handleFilterChange('type', 'token')} /> Token</label>
                                     <label className="flex items-center gap-2 mb-3 cursor-not-allowed text-gray-600" title="NFT data not available"><input type="checkbox" disabled /> NFT</label>
@@ -280,11 +280,11 @@ const ManualRevokePanel: React.FC = () => {
                             )}
                         </div>
                         <div className="relative" ref={sortRef}>
-                             <button onClick={() => setIsSortOpen(!isSortOpen)} className="w-full flex items-center justify-between gap-2 px-3 py-2 text-sm bg-gray-800 rounded-md text-gray-300 hover:bg-gray-700"><span>Sort</span> <ChevronDownIcon/></button>
+                             <button onClick={() => setIsSortOpen(!isSortOpen)} className="w-full flex items-center justify-between gap-2 px-3 py-2 text-sm bg-[#1A1A1D] border border-[#333336] rounded-md text-gray-300"><span>Sort</span> <ChevronDownIcon/></button>
                              {isSortOpen && (
-                                <div className="absolute top-full mt-2 w-64 bg-[#1A1A1D] border border-[#333336] rounded-lg shadow-xl z-20 text-gray-300 text-sm">
+                                <div className="absolute top-full mt-2 w-64 bg-[#0C0C0E] border border-[#333336] rounded-lg shadow-xl z-20 text-gray-300 text-sm">
                                     {sortOptions.map(opt => (
-                                        <button key={opt.key} onClick={() => handleSortSelect(opt.key)} className={`w-full text-left px-4 py-2 hover:bg-purple-600/20 ${sortOption === opt.key ? 'bg-purple-600/40' : ''}`}>{opt.label}</button>
+                                        <button key={opt.key} onClick={() => handleSortSelect(opt.key)} className={`w-full text-left px-4 py-2 hover:bg-[#1A1A1D] ${sortOption === opt.key ? 'bg-[#1A1A1D]' : ''}`}>{opt.label}</button>
                                     ))}
                                 </div>
                              )}

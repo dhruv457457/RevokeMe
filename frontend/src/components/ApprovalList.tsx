@@ -1,3 +1,4 @@
+// src/components/ApprovalList.tsx
 import React, { useState, useEffect } from "react";
 import { isAddress, formatUnits } from "viem";
 
@@ -13,6 +14,17 @@ const CubeIcon = () => (
     <path d="M12 22.08V12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
   </svg>
 );
+
+const NoApprovalsPlaceholder = () => (
+    <div className="flex flex-col items-center justify-center h-full text-center p-8">
+         <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-600 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.57-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.286zm0 13.036h.008v.008h-.008v-.008z" />
+        </svg>
+        <h4 className="font-semibold text-gray-300">All Clear!</h4>
+        <p className="text-sm text-gray-500 mt-1">No active approvals found for this account.</p>
+    </div>
+);
+
 
 const formatTimeAgo = (timestamp?: string | null): string => {
     if (!timestamp) return "-";
@@ -114,11 +126,8 @@ const ApprovalList: React.FC<ApprovalListProps> = ({ ownerAddress, limit }) => {
   }, [ownerAddress]);
 
   if (!ownerAddress) {
-    return (
-      <div className="text-center p-8 text-gray-400">
-        Please select an account to view approvals.
-      </div>
-    );
+    // This case is handled by the parent component (Home.tsx) now
+    return null;
   }
 
   if (isLoading) {
@@ -136,11 +145,7 @@ const ApprovalList: React.FC<ApprovalListProps> = ({ ownerAddress, limit }) => {
   }
 
   if (approvals.length === 0) {
-    return (
-      <div className="text-center p-8 text-gray-400">
-        No active approvals found for this account.
-      </div>
-    );
+    return <NoApprovalsPlaceholder />;
   }
 
   const displayedApprovals = limit ? approvals.slice(0, limit) : approvals;
