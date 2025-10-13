@@ -1,8 +1,45 @@
+// src/components/ApprovalList.tsx
 import React, { useState, useEffect } from "react";
 import { isAddress, formatUnits } from "viem";
 
 // Use the correct URL from your indexer's terminal output
 const INDEXER_URL = import.meta.env.VITE_INDEXER_URL as string;
+
+// --- Helper Components & Functions ---
+
+const CubeIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-gray-400">
+    <path d="M21 16V8L12 2L3 8V16L12 22L21 16Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M3.27 6.96L12 12.01L20.73 6.96" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M12 22.08V12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+const NoApprovalsPlaceholder = () => (
+    <div className="flex flex-col items-center justify-center h-full text-center p-8">
+         <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-600 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.57-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.286zm0 13.036h.008v.008h-.008v-.008z" />
+        </svg>
+        <h4 className="font-semibold text-gray-300">All Clear!</h4>
+        <p className="text-sm text-gray-500 mt-1">No active approvals found for this account.</p>
+    </div>
+);
+
+
+const formatTimeAgo = (timestamp?: string | null): string => {
+    if (!timestamp) return "-";
+    const date = new Date(Number(timestamp) * 1000);
+    const now = new Date();
+    const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+    if (seconds < 60) return `${seconds} secs ago`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes} mins ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} hours ago`;
+    const days = Math.floor(hours / 24);
+    return `${days} days ago`;
+};
 
 // Type Definitions
 interface Approval {
@@ -16,27 +53,21 @@ interface Approval {
 
 interface ApprovalListProps {
   ownerAddress?: `0x${string}`;
+  limit?: number;
 }
 
 const formatAmount = (amount: string) => {
   try {
-    return Number(formatUnits(BigInt(amount), 18)).toLocaleString();
+    const formatted = Number(formatUnits(BigInt(amount), 18));
+    if (formatted > 1e12) return "Unlimited";
+    return formatted.toLocaleString();
   } catch {
     return amount;
   }
 };
 
-const formatDate = (timestamp?: string | null) => {
-  if (!timestamp) return "-";
-  const asNum = typeof timestamp === "string" ? Number(timestamp) : timestamp;
-  if (!asNum || isNaN(asNum)) return "-";
-  const date = new Date(Number(asNum) * 1000);
-  return date.toLocaleString();
-};
-
-const ApprovalList: React.FC<ApprovalListProps> = ({ ownerAddress }) => {
+const ApprovalList: React.FC<ApprovalListProps> = ({ ownerAddress, limit }) => {
   const [approvals, setApprovals] = useState<Approval[]>([]);
-  const [sampleApprovals, setSampleApprovals] = useState<Approval[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,10 +75,7 @@ const ApprovalList: React.FC<ApprovalListProps> = ({ ownerAddress }) => {
     let isMounted = true;
     const fetchApprovalsFromIndexer = async () => {
       if (!ownerAddress || !isAddress(ownerAddress)) {
-        if (isMounted) {
-          setApprovals([]);
-          setSampleApprovals([]);
-        }
+        if (isMounted) setApprovals([]);
         return;
       }
 
@@ -55,15 +83,11 @@ const ApprovalList: React.FC<ApprovalListProps> = ({ ownerAddress }) => {
       setError(null);
 
       const normalized = ownerAddress.toLowerCase();
-
       const graphqlQuery = {
         query: `
-          query GetApprovalsAndSample($addr: String!) {
-            SampleApprovals: Approval(limit: 5, order_by: { blockTimestamp: desc }) {
-              id owner spender tokenAddress amount blockTimestamp
-            }
-            OwnerOrSpender: Approval(
-              where: { _or: [{ owner: { _eq: $addr } }, { spender: { _eq: $addr } }]}
+          query GetApprovals($addr: String!) {
+            Approval(
+              where: { _or: [{ owner: { _eq: $addr } }, { spender: { _eq: $addr } }]},
               order_by: { blockTimestamp: desc }
             ) {
               id owner spender tokenAddress amount blockTimestamp
@@ -80,149 +104,79 @@ const ApprovalList: React.FC<ApprovalListProps> = ({ ownerAddress }) => {
           body: JSON.stringify(graphqlQuery),
         });
 
-        if (!response.ok) {
-          throw new Error(
-            `Cannot reach indexer at ${INDEXER_URL} (HTTP ${response.status})`
-          );
-        }
+        if (!response.ok) throw new Error(`Indexer request failed: ${response.status}`);
+        const data = await response.json();
+        if (data.errors) throw new Error("GraphQL error: " + data.errors.map((e: any) => e.message).join("; "));
 
-        const rawText = await response.text();
-        let data: any;
-        try {
-          data = JSON.parse(rawText);
-        } catch {
-          throw new Error("Response from indexer is not valid JSON.");
-        }
-
-        if (data.errors) {
-          throw new Error("GraphQL error: " + data.errors.map((e: any) => e.message).join("; "));
-        }
-
-        const sampleRows: Approval[] = data?.data?.SampleApprovals ?? [];
-        const ownerOrSpenderRows: Approval[] = data?.data?.OwnerOrSpender ?? [];
-        const activeApprovals = ownerOrSpenderRows.filter(
-          (app) => {
-            try {
-              return BigInt(app.amount) > 0n;
-            } catch {
-              return false;
-            }
+        const activeApprovals = (data?.data?.Approval ?? []).filter(
+          (app: Approval) => {
+            try { return BigInt(app.amount) > 0n; }
+            catch { return false; }
           }
         );
-
-        if (isMounted) {
-          setSampleApprovals(sampleRows);
-          setApprovals(activeApprovals);
-        }
+        if (isMounted) setApprovals(activeApprovals);
       } catch (err: any) {
-        if (isMounted) {
-          setError(
-            err?.message ??
-              "Could not connect to the indexer backend. Make sure it is running locally."
-          );
-        }
+        if (isMounted) setError(err?.message ?? "Could not connect to the indexer.");
       } finally {
         if (isMounted) setIsLoading(false);
       }
     };
-
     fetchApprovalsFromIndexer();
-
-    return () => {
-      isMounted = false;
-    };
+    return () => { isMounted = false; };
   }, [ownerAddress]);
 
   if (!ownerAddress) {
-    return (
-      <div className="text-center p-8 text-gray-500">
-        Please select an account to view approvals.
-      </div>
-    );
+    // This case is handled by the parent component (Home.tsx) now
+    return null;
   }
 
   if (isLoading) {
     return (
-      <div className="text-center p-8 animate-pulse text-gray-500">
-        Loading approvals from indexer...
+      <div className="text-center p-8 text-gray-300 animate-pulse">
+        Loading approvals...
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="text-center p-8 text-red-500 bg-red-50 rounded-lg">{error}</div>
+      <div className="text-center p-8 text-red-400 bg-red-900/20 rounded-lg">{error}</div>
     );
   }
 
-  // Approval table for matches
-  if (approvals.length > 0) {
-    return (
-      <div className="mt-6 border rounded-lg shadow-md bg-white w-full max-w-4xl mx-auto">
-        <table className="w-full text-left table-auto">
-          <thead className="bg-gray-50 border-b">
-            <tr>
-              <th className="p-4 font-semibold">Token Address</th>
-              <th className="p-4 font-semibold">Owner</th>
-              <th className="p-4 font-semibold">Spender</th>
-              <th className="p-4 font-semibold text-right">Allowance (approx)</th>
-              <th className="p-4 font-semibold text-right">Block Time</th>
-            </tr>
-          </thead>
-          <tbody>
-            {approvals.map((approval) => (
-              <tr key={approval.id} className="border-b last-border-b-0 hover:bg-gray-50 transition-colors">
-                <td className="p-4 text-sm font-mono break-all">{approval.tokenAddress}</td>
-                <td className="p-4 text-sm font-mono break-all">{approval.owner || "-"}</td>
-                <td className="p-4 text-sm font-mono break-all">{approval.spender}</td>
-                <td className="p-4 text-right font-semibold">{formatAmount(approval.amount)}</td>
-                <td className="p-4 text-right text-sm text-gray-500">{formatDate(approval.blockTimestamp)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    );
+  if (approvals.length === 0) {
+    return <NoApprovalsPlaceholder />;
   }
 
-  // No matches → Show sample data
+  const displayedApprovals = limit ? approvals.slice(0, limit) : approvals;
+
   return (
-    <div className="mt-6 max-w-4xl mx-auto text-center">
-      <p className="text-gray-600 mb-4">
-        No active approvals found for <span className="font-mono bg-gray-100 p-1 rounded">{ownerAddress}</span>.
-      </p>
-      <div className="bg-white border rounded-lg p-4 shadow-sm">
-        <h3 className="text-left font-semibold mb-2">Sample approvals from the indexer (latest 5 rows)</h3>
-        {sampleApprovals.length === 0 ? (
-          <div className="text-gray-500">No approvals in the indexer yet.</div>
-        ) : (
-          <table className="w-full text-left table-auto">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="p-2 text-xs font-semibold">Owner</th>
-                <th className="p-2 text-xs font-semibold">Spender</th>
-                <th className="p-2 text-xs font-semibold">Token</th>
-                <th className="p-2 text-xs font-semibold">Amount</th>
-                <th className="p-2 text-xs font-semibold">Block Time</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sampleApprovals.map((s) => (
-                <tr key={s.id} className="border-b">
-                  <td className="p-2 text-xs font-mono break-all">{s.owner || "-"}</td>
-                  <td className="p-2 text-xs font-mono break-all">{s.spender}</td>
-                  <td className="p-2 text-xs font-mono break-all">{s.tokenAddress}</td>
-                  <td className="p-2 text-xs">{formatAmount(s.amount)}</td>
-                  <td className="p-2 text-xs text-gray-500">{formatDate(s.blockTimestamp)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-      <p className="text-sm text-gray-500 mt-3">
-        Tip: the indexer stores approvals by the owner. If nothing shows up, toggle accounts or check your indexer configuration.
-      </p>
+    <div className="space-y-1">
+      {displayedApprovals.map((approval) => (
+        <div key={approval.id} className="approval-card flex justify-between items-center p-4">
+          {/* Left Side */}
+          <div className="flex items-center gap-4">
+            <div className="bg-gray-800 p-3 rounded-full">
+              <CubeIcon />
+            </div>
+            <div>
+              <p className="font-semibold" title={approval.tokenAddress}>
+                Token: {approval.tokenAddress.slice(0, 6)}...{approval.tokenAddress.slice(-4)}
+              </p>
+              <p className="text-sm text-gray-500">{formatTimeAgo(approval.blockTimestamp)}</p>
+            </div>
+          </div>
+          {/* Right Side */}
+          <div className="text-right">
+            <p className="font-mono text-sm text-gray-300" title={approval.spender}>
+              Spender: {approval.spender.slice(0, 8)}...{approval.spender.slice(-4)}
+            </p>
+            <p className="text-sm font-semibold text-gray-400 mt-1">
+              Allowance: {formatAmount(approval.amount)}
+            </p>
+          </div>
+        </div>
+      ))}
     </div>
   );
 };

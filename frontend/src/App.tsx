@@ -5,9 +5,9 @@ import { wagmiConfig } from "./config";
 import { SmartAccountProvider } from "./hooks/useSmartAccount";
 
 import NavBar from "./components/NavBar";
+import Footer from "./components/Footer"; 
 import Home from "./pages/Home";
 import RevokeERC20 from "./pages/RevokeERC20";
-import SmartAccountSetup from "./components/SmartAccountSetup";
 import AutoRevokePage from "./pages/AutoRevokePage";
 import ApproveERC20 from "./pages/ApproveERC20";
 
@@ -19,17 +19,17 @@ function App() {
       <WagmiProvider config={wagmiConfig}>
         <SmartAccountProvider>
           <Router>
-            <div className="min-h-screen bg-gray-50 flex flex-col">
+            <div className="min-h-screen flex flex-col">
               <NavBar />
-              <main className="flex-grow p-8">
+              <main className="flex-grow border border-t-[#333336]">
                 <Routes>
                   <Route path="/" element={<Home />} />
                   <Route path="/revoke-erc20" element={<RevokeERC20 />} />
                   <Route path="/auto-revoke" element={<AutoRevokePage />} />
                   <Route path="/approve-erc20" element={<ApproveERC20 />} />      
                 </Routes>
-                <SmartAccountSetup />
               </main>
+              <Footer /> 
             </div>
           </Router>
         </SmartAccountProvider>

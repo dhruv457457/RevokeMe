@@ -1,1 +1,57 @@
 @import "tailwindcss";
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-[#09090B];
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+::-webkit-scrollbar {
+  display: none; /* For Chrome, Safari, and Opera */
+}
+
+/* New Styles for Approval List and Home Page */
+
+/* Dashboard Card Container */
+.dashboard-card {
+  @apply bg-[#0C0C0E] border border-[#262626] rounded-xl shadow-lg flex flex-col transition-all duration-300;
+}
+
+.dashboard-card-header {
+  @apply p-5 border-b border-[#262626] flex justify-between items-center;
+}
+
+.dashboard-card-content {
+  @apply p-5 flex-grow h-96 overflow-y-auto;
+  scrollbar-width: thin;
+  scrollbar-color: #4f4f4f #1f1f1f;
+}
+
+.dashboard-card-content::-webkit-scrollbar {
+  @apply w-2;
+}
+
+.dashboard-card-content::-webkit-scrollbar-track {
+  @apply bg-[#1f1f1f];
+}
+
+.dashboard-card-content::-webkit-scrollbar-thumb {
+  @apply bg-[#4f4f4f] rounded-full;
+}
+
+.dashboard-card-footer {
+  @apply p-4 border-t border-[#262626] text-center;
+}
+
+.view-more-button {
+  @apply  font-semibold text-sm transition-colors;
+}
+
+/* Individual Approval Card */
+.approval-card {
+  @apply hover:bg-[#1A1A1D] cursor-pointer border-b border-[#333336] p-4 transition-transform duration-200 ;
+}
