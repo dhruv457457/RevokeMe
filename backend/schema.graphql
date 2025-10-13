@@ -1,8 +1,0 @@
-type Approval @entity {
-  id: ID!
-  tokenAddress: String!
-  owner: String! @indexed
-  spender: String! @indexed
-  amount: BigInt!
-  blockTimestamp: BigInt!
-}
