@@ -82,24 +82,28 @@ const RevokeErc20Page: React.FC = () => {
     };
 
     return (
-        <div className="max-w-7xl mx-auto min-h-screen py-12 ">
+        <div className="max-w-7xl mx-auto min-h-screen py-12 px-10 md:px-0">
             
             {/* --- Wallet Cards with Integrated Stats --- */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+            <div className="flex flex-col md:flex-row gap-8 mb-12">
                 {/* EOA Details Card - receives EOA-specific stats */}
-                <EOADetails 
-                    totalApprovals={eoaStats.totalApprovals}
-                    valueAtRisk={eoaStats.totalValueAtRisk}
-                    totalRevokes={eoaStats.totalRevokes}
-                    amountRevoked={eoaStats.totalAmountRevoked}
-                />
+                <div className="w-full md:w-1/2">
+                    <EOADetails 
+                        totalApprovals={eoaStats.totalApprovals}
+                        valueAtRisk={eoaStats.totalValueAtRisk}
+                        totalRevokes={eoaStats.totalRevokes}
+                        amountRevoked={eoaStats.totalAmountRevoked}
+                    />
+                </div>
                 {/* Smart Account Details Card - receives Smart Account-specific stats */}
-                <SmartAccountDetails 
-                    totalApprovals={smartAccountStats.totalApprovals}
-                    valueAtRisk={smartAccountStats.totalValueAtRisk}
-                    totalRevokes={smartAccountStats.totalRevokes}
-                    amountRevoked={smartAccountStats.totalAmountRevoked}
-                />
+                <div className="w-full md:w-1/2">
+                    <SmartAccountDetails 
+                        totalApprovals={smartAccountStats.totalApprovals}
+                        valueAtRisk={smartAccountStats.totalValueAtRisk}
+                        totalRevokes={smartAccountStats.totalRevokes}
+                        amountRevoked={smartAccountStats.totalAmountRevoked}
+                    />
+                </div>
             </div>
 
             {/* --- PANELS SECTION --- */}

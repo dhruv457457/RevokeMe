@@ -2,6 +2,14 @@
 import React, { useState } from 'react';
 import { useAccount, useBalance } from 'wagmi';
 import { formatEther } from 'viem';
+import StatItem from './StatItem'; // Import the new component
+
+// --- Icons for Stats ---
+const ApprovalIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6-4l-3-3-6 6-2-2-3 3 6 6 3-3" /></svg>;
+const RiskIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>;
+const RevokeIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>;
+const AmountIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v.01" /></svg>;
+
 
 // A simple copy-to-clipboard utility hook
 const useCopyToClipboard = () => {
@@ -29,7 +37,7 @@ const EOADetails: React.FC<EOADetailsProps> = ({ totalApprovals, valueAtRisk, to
 
     if (!isConnected || !address) {
         return (
-            <div className="bg-gray-900 border border-gray-700 rounded-lg p-6 h-full flex items-center justify-center">
+            <div className="bg-[#0C0C0E] border border-[#333336] rounded-3xl p-6 h-full flex items-center justify-center">
                 <p className="text-gray-400">Please connect your wallet.</p>
             </div>
         );
@@ -38,10 +46,9 @@ const EOADetails: React.FC<EOADetailsProps> = ({ totalApprovals, valueAtRisk, to
     const balance = balanceData ? formatEther(balanceData.value) : '0';
 
     return (
-        <div className="border border-[#333336] bg-[#0C0C0E] rounded-3xl p-6 h-full flex flex-col">
+        <div className=" bg-[#101012] border border-[#1A1A1D]  rounded-3xl p-6 h-full flex flex-col justify-between">
             {/* Top Section: Details & Balance */}
-            <div className="flex justify-between items-start pb-4">
-                {/* Left Side: Title & Address */}
+            <div className="flex justify-between items-start">
                 <div>
                     <h3 className="text-sm font-semibold text-blue-400">Connected Wallet (EOA)</h3>
                     <div className="mt-2 flex items-center gap-2">
@@ -57,7 +64,6 @@ const EOADetails: React.FC<EOADetailsProps> = ({ totalApprovals, valueAtRisk, to
                         </button>
                     </div>
                 </div>
-                {/* Right Side: Balance */}
                 <div className="text-right">
                     <p className="text-xs text-gray-500">Balance</p>
                     <p className="text-2xl font-bold text-white">{parseFloat(balance).toFixed(4)} <span className="text-lg font-medium text-gray-400">MONAD</span></p>
@@ -65,23 +71,14 @@ const EOADetails: React.FC<EOADetailsProps> = ({ totalApprovals, valueAtRisk, to
             </div>
 
             {/* Bottom Section: Stats */}
-            <div className="flex-grow grid grid-cols-2 gap-y-4 gap-x-2 content-center border-t border-gray-700 pt-4">
-                <div>
-                    <p className="text-xs text-gray-500">Active Approvals</p>
-                    <p className="text-lg font-bold text-white">{totalApprovals}</p>
-                </div>
-                <div className="text-right">
-                    <p className="text-xs text-gray-500">Value at Risk</p>
-                    <p className="text-lg font-bold text-yellow-400">${valueAtRisk.toLocaleString()}</p>
-                </div>
-                <div>
-                    <p className="text-xs text-gray-500">Total Revokes</p>
-                    <p className="text-lg font-bold text-white">{totalRevokes}</p>
-                </div>
-                <div className="text-right">
-                    <p className="text-xs text-gray-500">Amount Revoked</p>
-                    <p className="text-lg font-bold text-red-400">${amountRevoked.toLocaleString()}</p>
-                </div>
+            <div className="flex justify-between items-center border-t border-gray-700/50 pt-4 mt-4">
+                <StatItem icon={<ApprovalIcon />} label="Approvals" value={totalApprovals} index={0} />
+                <div className="h-8 border-l border-gray-700/50"></div>
+                <StatItem icon={<RiskIcon />} label="Value at Risk" value={`$${valueAtRisk.toLocaleString()}`} colorClass="text-yellow-400" index={1} />
+                <div className="h-8 border-l border-gray-700/50"></div>
+                <StatItem icon={<RevokeIcon />} label="Total Revokes" value={totalRevokes} index={2} />
+                 <div className="h-8 border-l border-gray-700/50"></div>
+                <StatItem icon={<AmountIcon />} label="Amount Revoked" value={`$${amountRevoked.toLocaleString()}`} colorClass="text-red-400" index={3} />
             </div>
         </div>
     );

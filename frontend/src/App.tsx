@@ -5,7 +5,6 @@ import { wagmiConfig } from "./config";
 import { SmartAccountProvider } from "./hooks/useSmartAccount";
 
 import NavBar from "./components/NavBar";
-import Footer from "./components/Footer"; 
 import Home from "./pages/Home";
 import RevokeERC20 from "./pages/RevokeERC20";
 import AutoRevokePage from "./pages/AutoRevokePage";
@@ -29,7 +28,6 @@ function App() {
                   <Route path="/approve-erc20" element={<ApproveERC20 />} />      
                 </Routes>
               </main>
-              <Footer /> 
             </div>
           </Router>
         </SmartAccountProvider>
