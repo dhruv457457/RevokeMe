@@ -9,6 +9,7 @@ import Home from "./pages/Home";
 import RevokeERC20 from "./pages/RevokeERC20";
 import AutoRevokePage from "./pages/AutoRevokePage";
 import ApproveERC20 from "./pages/ApproveERC20";
+import AddressDetailsPage from "./pages/AddressDetailsPage";
 
 const queryClient = new QueryClient();
 
@@ -26,7 +27,8 @@ function App() {
                   <Route path="/revoke-erc20" element={<RevokeERC20 />} />
                   <Route path="/auto-revoke" element={<AutoRevokePage />} />
                   <Route path="/approve-erc20" element={<ApproveERC20 />} />      
-                </Routes>
+                  <Route path="/address/:address" element={<AddressDetailsPage />} />
+                    </Routes>
               </main>
             </div>
           </Router>
