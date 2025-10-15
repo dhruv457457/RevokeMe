@@ -4,7 +4,7 @@ import { useAccount, useWriteContract, useReadContract, useWaitForTransactionRec
 import { useSmartAccount } from '../../hooks/useSmartAccount';
 import { encodeFunctionData, isAddress, getAddress, zeroAddress } from 'viem';
 import { revocationModuleFactoryAddress, revocationModuleFactoryAbi } from '../../lib/contracts/contracts';
-import { fetchApprovals, type Approval } from '../../utils/fetchApprovals';
+import { fetchApprovalsByAddress, type Approval } from '../../utils/fetchApprovals';
 import ApprovalsTable from './ApprovalsTable';
 import StatusDisplay from '../shared/StatusDisplay';
 import { erc20Abi } from '../../lib/abis/erc20Abi';
@@ -87,23 +87,26 @@ const ManualRevokePanel: React.FC<ManualRevokePanelProps> = ({ onDataFetched }) 
     }, [isCreationSuccess, refetchModuleAddress, status.message]);
 
     // UPDATED: Data fetching to include accountType in callback and dependencies
-    useEffect(() => {
-        if (!selectedAddress || !isAddress(selectedAddress)) {
-            setApprovals([]);
-            onDataFetched([], accountType); // Send empty array and account type
-            return;
-        }
-        setIsLoading(true);
-        setStatus({ type: 'idle', message: '' });
-        fetchApprovals(selectedAddress)
-            .then(data => {
-                setApprovals(data);
-                onDataFetched(data, accountType); // Call the callback with fetched data and account type
+useEffect(() => {
+        if (!selectedAddress || !isAddress(selectedAddress)) {
+            setApprovals([]);
+            onDataFetched([], accountType);
+            return;
+        }
+        setIsLoading(true);
+        setStatus({ type: 'idle', message: '' });
+        // AND CHANGE THIS LINE:
+        fetchApprovalsByAddress(selectedAddress) 
+            .then(data => {
+                setApprovals(data);
+                onDataFetched(data, accountType);
+            })
+            .catch((err) => {
+                console.error("Fetch error:", err); // Log the actual error
+                setStatus({ type: 'error', message: 'Could not fetch approvals.' })
             })
-            .catch(() => setStatus({ type: 'error', message: 'Could not fetch approvals.' }))
-            .finally(() => setIsLoading(false));
-    }, [selectedAddress, onDataFetched, accountType]); // Added accountType to dependencies
-
+            .finally(() => setIsLoading(false));
+    }, [selectedAddress, onDataFetched, accountType]);
     // New Memoized function to apply sort and filters
     const displayedApprovals = useMemo(() => {
         // FIX: Using canonical max uint256 (64 Fs) for reliable 'unlimited' check.

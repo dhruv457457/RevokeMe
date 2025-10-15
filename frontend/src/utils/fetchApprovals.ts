@@ -2,7 +2,7 @@ import { isAddress } from 'viem';
 
 const INDEXER_URL = import.meta.env.VITE_INDEXER_URL as string;
 
-// The Approval type should match all fields returned by the query
+// --- Type Definitions ---
 export interface Approval {
   id: string;
   tokenAddress: `0x${string}`;
@@ -12,53 +12,55 @@ export interface Approval {
   blockTimestamp?: string | null;
 }
 
-// NEW Type for popular spender statistics
 export interface SpenderStats {
   spender: `0x${string}`;
   count: number;
 }
 
-// --- EXISTING FUNCTION (NO CHANGES) ---
-export const fetchApprovals = async (address: string): Promise<Approval[]> => {
-    if (!isAddress(address)) {
-        throw new Error("Invalid address provided to fetchApprovals");
-    }
-    const query = {
-        query: `
-            query GetApprovals($addr: String!) {
-              Approval(
-                where: { 
-                  _or: [
-                    { owner: { _eq: $addr }},
-                    { spender: { _eq: $addr }}
-                  ],
-                  amount: { _gt: "0" } 
-                },
-                order_by: { blockTimestamp: desc }
-              ) {
-                id owner spender tokenAddress amount blockTimestamp
-              }
-            }
-        `,
-        variables: { addr: address.toLowerCase() },
-    };
-    const response = await fetch(INDEXER_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(query),
-    });
-    if (!response.ok) throw new Error("Failed to fetch from indexer");
-    const result = await response.json();
-    if (result.errors) throw new Error(`GraphQL Error: ${result.errors[0].message}`);
-    const raw = result?.data?.Approval ?? [];
-    return raw.filter((a: Approval) => {
-      try { return BigInt(a.amount) > 0n; }
-      catch { return false; }
-    });
+// --- FIXED FUNCTION for Revoke Panel ---
+// The GraphQL query now ONLY fetches by the 'owner' field.
+export const fetchApprovalsByAddress = async (address: string): Promise<Approval[]> => {
+    if (!isAddress(address)) {
+        throw new Error("Invalid address provided.");
+    }
+
+    const query = {
+        query: `
+            query GetApprovalsForOwner($addr: String!) {
+                Approval(
+                    where: {
+                        owner: { _eq: $addr },
+                        amount: { _gt: "0" }
+                    },
+                    order_by: { blockTimestamp: desc }
+                ) {
+                    id owner spender tokenAddress amount blockTimestamp
+                }
+            }
+        `,
+        variables: { addr: address.toLowerCase() },
+    };
+
+    const response = await fetch(INDEXER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(query),
+    });
+
+    if (!response.ok) {
+        throw new Error("Failed to fetch from indexer");
+    }
+
+    const result = await response.json();
+    if (result.errors) {
+        throw new Error(`GraphQL Error: ${result.errors[0].message}`);
+    }
+
+    return result?.data?.Approval ?? [];
 };
 
 
-// --- NEW FUNCTION 1: Fetch Latest Global Approvals ---
+// --- UNCHANGED: Function for Latest Global Approvals ---
 export const fetchLatestGlobalApprovals = async (limit: number = 5): Promise<Approval[]> => {
   const query = {
     query: `
@@ -87,8 +89,7 @@ export const fetchLatestGlobalApprovals = async (limit: number = 5): Promise<App
   return result?.data?.Approval ?? [];
 };
 
-// --- NEW FUNCTION 2: Fetch Popular Spenders ---
-// We fetch a large batch of recent approvals and aggregate them on the client-side.
+// --- UNCHANGED: Function for Popular Spenders ---
 export const fetchPopularSpenders = async (scanLimit: number = 1000, resultLimit: number = 5): Promise<SpenderStats[]> => {
   const query = {
     query: `
