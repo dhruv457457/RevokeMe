@@ -88,25 +88,25 @@ const ManualRevokePanel: React.FC<ManualRevokePanelProps> = ({ onDataFetched }) 
 
     // UPDATED: Data fetching to include accountType in callback and dependencies
 useEffect(() => {
-        if (!selectedAddress || !isAddress(selectedAddress)) {
-            setApprovals([]);
-            onDataFetched([], accountType);
-            return;
-        }
-        setIsLoading(true);
-        setStatus({ type: 'idle', message: '' });
+    if (!selectedAddress || !isAddress(selectedAddress)) {
+      setApprovals([]);
+      onDataFetched([], accountType);
+      return;
+    }
+    setIsLoading(true);
+    setStatus({ type: 'idle', message: '' });
         // AND CHANGE THIS LINE:
-        fetchApprovalsByAddress(selectedAddress) 
-            .then(data => {
-                setApprovals(data);
-                onDataFetched(data, accountType);
-            })
-            .catch((err) => {
+    fetchApprovalsByAddress(selectedAddress) 
+      .then(data => {
+        setApprovals(data);
+        onDataFetched(data, accountType);
+      })
+      .catch((err) => {
                 console.error("Fetch error:", err); // Log the actual error
                 setStatus({ type: 'error', message: 'Could not fetch approvals.' })
             })
-            .finally(() => setIsLoading(false));
-    }, [selectedAddress, onDataFetched, accountType]);
+      .finally(() => setIsLoading(false));
+  }, [selectedAddress, onDataFetched, accountType]);
     // New Memoized function to apply sort and filters
     const displayedApprovals = useMemo(() => {
         // FIX: Using canonical max uint256 (64 Fs) for reliable 'unlimited' check.

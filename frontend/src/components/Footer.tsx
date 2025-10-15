@@ -43,11 +43,11 @@ const EnvioIcon = () => (
 
 const Footer: React.FC = () => {
   return (
-    <footer className=" text-white p-10">
-      <div className="max-w-7xl mx-auto px-8 border border-[#333336] rounded-3xl">
+    <footer className="text-white p-6 sm:p-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-8 border border-[#333336] rounded-3xl">
 
         {/* Top Row */}
-        <div className="flex justify-between items-center py-6 border-b border-[#333336]">
+        <div className="flex flex-col sm:flex-row justify-between items-center py-6 border-b border-[#333336] space-y-4 sm:space-y-0">
           <h3 className="text-2xl font-bold text-gray-200">RevokeMe</h3>
           <div className="flex items-center space-x-4 text-gray-400">
             <a href="#" className="hover:text-white transition-colors"><TwitterIcon /></a>
@@ -56,35 +56,35 @@ const Footer: React.FC = () => {
         </div>
 
         {/* Bottom Row */}
-        <div className="flex flex-wrap justify-between items-center gap-6 text-sm py-5">
+        <div className="flex flex-col sm:flex-row flex-wrap justify-between items-center gap-6 text-sm py-5">
           {/* Left Side: Copyright */}
-          <div className="text-gray-500">
+          <div className="text-gray-500 text-center sm:text-left w-full sm:w-auto">
             © {new Date().getFullYear()} RevokeMe. All rights reserved.
           </div>
 
           {/* Middle: Powered By */}
-          <div className="flex items-center flex-wrap justify-center gap-x-6 gap-y-2 text-gray-400">
-            <span className="font-semibold text-gray-500">Powered by:</span>
+          <div className="flex items-center flex-wrap justify-center gap-x-6 gap-y-2 text-gray-400 w-full sm:w-auto">
+            <span className="font-semibold text-gray-500 w-full sm:w-auto text-center sm:text-left">Powered by:</span>
             <div className="flex items-center gap-2">
-                <MetaMaskIcon />
-                <span className="font-medium text-gray-300">MetaMask Smart Accounts</span>
+              <MetaMaskIcon />
+              <span className="font-medium text-gray-300">MetaMask Smart Accounts</span>
             </div>
-             <div className="flex items-center gap-2">
-                <MonadIcon />
-                <span className="font-medium text-gray-300">Monad</span>
+            <div className="flex items-center gap-2">
+              <MonadIcon />
+              <span className="font-medium text-gray-300">Monad</span>
             </div>
-             <div className="flex items-center gap-2">
-                <EnvioIcon />
-                <span className="font-medium text-gray-300">Envio</span>
+            <div className="flex items-center gap-2">
+              <EnvioIcon />
+              <span className="font-medium text-gray-300">Envio</span>
             </div>
           </div>
 
           {/* Right Side: Links */}
-          <div className="flex items-center gap-x-4 text-gray-400">
+          <div className="flex flex-wrap justify-center sm:justify-start items-center gap-x-4 text-gray-400 w-full sm:w-auto text-center">
             <a href="#" className="hover:text-white transition-colors">Support</a>
-            <span className="text-gray-600">|</span>
+            <span className="hidden sm:inline text-gray-600">|</span>
             <a href="#" className="hover:text-white transition-colors">Terms</a>
-            <span className="text-gray-600">|</span>
+            <span className="hidden sm:inline text-gray-600">|</span>
             <a href="#" className="hover:text-white transition-colors">Privacy</a>
           </div>
         </div>

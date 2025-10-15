@@ -21,17 +21,42 @@ const MetaMaskVisual = () => (
         />
     </motion.div>
 );
+
+
 const MonadVisual = () => (
     <motion.div 
         className="w-full h-full rounded-lg flex flex-col justify-center items-center p-4 overflow-hidden"
         initial="initial"
         whileHover="hover"
+        variants={{
+            initial: { scale: 1 },
+            hover: { scale: 1.1 }
+        }}
+        transition={{ type: "spring", stiffness: 300, damping: 20 }}
     >
-        <div className="relative w-full h-full flex items-center justify-center">
-            <svg className="w-40 h-40" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path fill="#836EF9" d="M12 3c-2.599 0-9 6.4-9 9s6.401 9 9 9s9-6.401 9-9s-6.401-9-9-9m-1.402 14.146c-1.097-.298-4.043-5.453-3.744-6.549s5.453-4.042 6.549-3.743c1.095.298 4.042 5.453 3.743 6.549c-.298 1.095-5.453 4.042-6.549 3.743"/>
-            </svg>
-        </div>
+        <motion.div 
+            className="relative w-full h-full flex items-center justify-center"
+            variants={{
+                initial: { rotate: 0 },
+                hover: { rotate: 15 }
+            }}
+            transition={{ duration: 0.5 }}
+        >
+            <motion.svg 
+                className="w-40 h-40" 
+                viewBox="0 0 24 24" 
+                xmlns="http://www.w3.org/2000/svg"
+                variants={{
+                    initial: { fill: "#836EF9" },
+                    hover: { fill: "#A389F4" }
+                }}
+                transition={{ duration: 0.5 }}
+            >
+                <motion.path 
+                  d="M12 3c-2.599 0-9 6.4-9 9s6.401 9 9 9s9-6.401 9-9s-6.401-9-9-9m-1.402 14.146c-1.097-.298-4.043-5.453-3.744-6.549s5.453-4.042 6.549-3.743c1.095.298 4.042 5.453 3.743 6.549c-.298 1.095-5.453 4.042-6.549 3.743"
+                />
+            </motion.svg>
+        </motion.div>
         <p className="font-mono text-green-400 text-sm mt-2">10,000 TPS</p>
     </motion.div>
 );
@@ -54,6 +79,7 @@ const EnvioVisual = () => (
         />
     </motion.div>
 );
+
 const MonitoringVisual = () => (
     <div className="w-full h-full  rounded-lg flex items-center justify-center p-4">
         <div className="w-28 h-28 border-4 border-blue-400 rounded-full flex items-center justify-center relative">
