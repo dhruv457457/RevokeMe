@@ -22,8 +22,6 @@ const NavBar: React.FC = () => {
     const navItems = [
         { name: "Home", link: "/" },
         { name: "Revoke ERC20", link: "/revoke-erc20" },
-        { name: "Auto Revoke", link: "/auto-revoke" },
-        { name: "Approve ERC20", link: "/approve-erc20" },
     ];
 
     return (

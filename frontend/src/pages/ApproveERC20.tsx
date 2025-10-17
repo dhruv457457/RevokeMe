@@ -1,3 +1,4 @@
+// src/pages/ApproveERC20.tsx
 import React, { useState } from 'react';
 import { useSmartAccount } from '../hooks/useSmartAccount';
 import { useAccount, useWriteContract } from 'wagmi';
@@ -25,7 +26,7 @@ const ApproveERC20Page: React.FC = () => {
   const [spenderAddress, setSpenderAddress] = useState('');
   const [approveAmount, setApproveAmount] = useState('100'); // Default to 100 (assuming 18 decimals)
   const [accountType, setAccountType] = useState<'smart' | 'eoa'>('smart');
-  const [status, setStatus] = useState<{ type: 'idle' | 'loading' | 'success' | 'error', message: string }>({ type: 'idle', message: '' });
+  const [status, setStatus] = useState<{ type: 'idle' | 'loading' | 'success' | 'error', message: string, txHash?: string }>({ type: 'idle', message: '' });
 
   const handleApprove = async () => {
     let validatedTokenAddress: `0x${string}`;
@@ -69,7 +70,7 @@ const ApproveERC20Page: React.FC = () => {
         });
         setStatus({ type: 'loading', message: `Approval sent! Waiting for confirmation... Hash: ${userOpHash}` });
         const { receipt } = await pimlicoClient.waitForUserOperationReceipt({ hash: userOpHash });
-        setStatus({ type: 'success', message: `Approval successful! Tx Hash: ${receipt.transactionHash}` });
+        setStatus({ type: 'success', message: `Approval successful!`, txHash: receipt.transactionHash });
       } else {
         const txHash = await writeContractAsync({
           address: validatedTokenAddress,
@@ -77,7 +78,7 @@ const ApproveERC20Page: React.FC = () => {
           functionName: 'approve',
           args: [validatedSpenderAddress, amountAsBigInt],
         });
-        setStatus({ type: 'success', message: `Approval successful! Tx Hash: ${txHash}` });
+        setStatus({ type: 'success', message: `Approval successful!`, txHash: txHash });
       }
     } catch (error: any) {
       console.error('Failed to send approval:', error);
@@ -102,7 +103,21 @@ const ApproveERC20Page: React.FC = () => {
           {status.type === 'loading' ? 'Processing...' : 'Approve Spender'}
         </button>
       </div>
-      {status.message && ( <div className={`mt-4 p-3 rounded-md text-sm break-words ${ status.type === 'success' ? 'bg-green-100 text-green-800' : status.type === 'error' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800' }`}> {status.message} </div> )}
+      {status.message && (
+        <div className={`mt-4 p-3 rounded-md text-sm break-words ${ status.type === 'success' ? 'bg-green-100 text-green-800' : status.type === 'error' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800' }`}>
+          {status.message}
+          {status.type === 'success' && status.txHash && (
+            <a
+              href={`https://testnet.monadexplorer.com/tx/${status.txHash}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:text-blue-800 font-semibold ml-2"
+            >
+              View on Explorer
+            </a>
+          )}
+        </div>
+       )}
     </div>
   );
 };
