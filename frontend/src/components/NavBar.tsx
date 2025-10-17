@@ -29,6 +29,7 @@ const NavBar: React.FC = () => {
             {/* --- Desktop Navigation --- */}
             <NavBody className="w-full">
                 <div className="flex items-center gap-x-2">
+                    <img src="https://i.ibb.co/5g5CF4jN/RevokeMe.png" className='h-8' alt="RevokeMe Logo" />
                     <Link to="/" className="text-xl font-bold text-white">RevokeMe</Link>
                 </div>
                 <NavItems items={navItems} />
