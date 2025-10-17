@@ -3,7 +3,7 @@ description: "Indexer for all ERC20 Approval events on Monad Testnet"
 networks:
   - id: 10143
     rpc: https://testnet-rpc.monad.xyz
-    start_block: 42713791
+    start_block: 43758280
     contracts:
       - name: ERC20
         handler: ./src/EventHandlers.ts
