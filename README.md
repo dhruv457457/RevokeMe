@@ -17,13 +17,6 @@
 * **[📹 Video Demo](https://youtu.be/PISKWNU-0Yc)**
 * **[📄 Pitch Deck](https://gamma.app/docs/AutoRevoke--lqz7wypgwl21w1j)**
 
----
-
-## 🎥 Watch the Demo
-
-[![Watch the video](https://img.youtube.com/vi/PISKWNU-0Yc/maxresdefault.jpg)](https://www.youtube.com/watch?v=PISKWNU-0Yc)
-
-*Click the image above to watch the full demo on YouTube*
 
 ---
 
