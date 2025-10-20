@@ -41,7 +41,7 @@ let registerContractHandlers = (
         let chain = ChainMap.Chain.makeUnsafe(~chainId=10143)
         {
           InternalConfig.confirmedBlockThreshold: 200,
-          startBlock: 42544100,
+          startBlock: 44392918,
           id: 10143,
           contracts,
           sources: NetworkSources.evm(~chain, ~contracts=[{name: "ERC20",events: [Types.ERC20.Approval.register()],abi: Types.ERC20.abi}], ~hyperSync=Some("https://10143.hypersync.xyz"), ~allEventSignatures=[Types.ERC20.eventSignatures]->Belt.Array.concatMany, ~shouldUseHypersyncClientDecoder=true, ~rpcs=[{url: "https://testnet-rpc.monad.xyz", sourceFor: Fallback, syncConfig: {}}])
